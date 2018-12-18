@@ -2,12 +2,14 @@ package cvdhelper
 
 import (
 	"errors"
+	"fmt"
 	"image"
 	"image/jpeg"
 	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 //GetPaths will return the paths of all the files in the directory and sub directorys. If suffixes is nil then it will grab everything.
@@ -49,6 +51,90 @@ func GetImageHD(path string) (image.Image, error) {
 		return png.Decode(file)
 	}
 	return nil, errors.New("Unsupported Format")
+}
+
+//GetImagesHD will return a slice of image.Image from hard drive.  This can be parallelized with goroutines >1.
+func GetImagesHD(paths []string, goroutines int) ([]image.Image, error) {
+	if goroutines < 1 {
+		return nil, errors.New("Must have  goroutines> 0")
+	}
+	if len(paths) < goroutines {
+		return nil, errors.New("number of paths can't be less than number of goroutines")
+	}
+
+	imgs := make([]image.Image, len(paths))
+	if goroutines == 1 {
+		var err error
+		for i, path := range paths {
+			imgs[i], err = GetImageHD(path)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	imgchans := make([]chan image.Image, goroutines)
+
+	err := goranges(imgs, paths, imgchans)
+	return imgs, err
+}
+func goranges(imgs []image.Image, paths []string, imgchans []chan image.Image) error {
+	offset := len(imgs) / len(imgchans)
+	errs := make([]chan int, len(imgchans))
+	var wg sync.WaitGroup
+	for i, imgchan := range imgchans {
+
+		errs[i] = make(chan int, 1)
+		imgchan = make(chan image.Image, 10)
+
+		wg.Add(1)
+		startat := i * offset
+		endat := startat + offset - 1
+		if endat < len(imgs) {
+			go channelsitter(imgs[startat:endat], imgchan, &wg)
+			go imagefinder(imgchan, errs[i], paths[startat:endat])
+
+		} else {
+			go channelsitter(imgs[startat:], imgchan, &wg)
+			go imagefinder(imgchan, errs[i], paths[startat:])
+
+		}
+
+	}
+	for _, err := range errs {
+		x := <-err
+		if x != 0 {
+			return errors.New("1")
+		}
+	}
+
+	wg.Wait() //this is probably redundant
+	return nil
+}
+func imagefinder(imgchan chan<- image.Image, errchan chan<- int, paths []string) {
+	for _, path := range paths {
+		img, err := GetImageHD(path)
+
+		if err != nil {
+			close(imgchan)
+			errchan <- 1 //panic(err)
+		}
+
+		imgchan <- img
+
+	}
+	fmt.Println("Didn't Find an Error closing image chan")
+	close(imgchan)
+	fmt.Println("Sending a zero")
+	errchan <- 0
+}
+func channelsitter(imgs []image.Image, imgchan <-chan image.Image, wg *sync.WaitGroup) {
+	i := 0
+	for img := range imgchan {
+		imgs[i] = img
+		i++
+	}
+	fmt.Println("Sending Done for waitgroup")
+	wg.Done()
 }
 
 /*

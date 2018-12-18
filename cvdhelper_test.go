@@ -6,6 +6,20 @@ import (
 	"github.com/dereklstinson/cvdhelper"
 )
 
+const mpiiimgaelocation = "/home/derek/Desktop/mpii-images/"
+
+func TestGetImages(t *testing.T) {
+	paths, err := cvdhelper.GetPaths(mpiiimgaelocation, []string{"2.jpg"})
+	if err != nil {
+		t.Error(err)
+	}
+	_, err = cvdhelper.GetImages(paths, 24)
+	if err != nil {
+		t.Error(err)
+	}
+
+}
+
 func TestGetPaths(t *testing.T) {
 	paths, err := cvdhelper.GetPaths("./testimgs/", []string{".png"})
 	if err != nil {
