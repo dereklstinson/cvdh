@@ -65,26 +65,3 @@ func TestGetImageHD(t *testing.T) {
 		}
 	}
 }
-
-/*
-func TestGetImage(t *testing.T) {
-	paths, err := cvdhelper.GetPaths("./testimgs/", []string{".jpg", ".png"})
-	if err != nil {
-		t.Error(err)
-	}
-	for _, path := range paths {
-		file, err := os.Open(path)
-		defer file.Close()
-		if err != nil {
-			t.Error(err)
-		}
-		img, err := cvdhelper.GetImage(file)
-		if err != nil {
-			t.Error(err)
-		}
-		if img == nil {
-			t.Error("Shouldn't Be nil")
-		}
-	}
-}
-*/

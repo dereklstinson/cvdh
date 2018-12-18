@@ -50,20 +50,3 @@ func GetImageHD(path string) (image.Image, error) {
 	}
 	return nil, errors.New("Unsupported Format")
 }
-
-/*
-//GetImage takes an io.Reader and first checks to see if it is a jpeg. If not it will check to see if it is an png.
-func GetImage(r io.Reader) (image.Image, error) {
-	img, err1 := jpeg.Decode(r)
-	if err1 != nil {
-		strerr := err1.Error()
-		img1, err2 := png.Decode(r)
-		if err2 != nil {
-			strerr2 := err2.Error()
-			return nil, errors.New("JPEG: " + strerr + ", PNG: " + strerr2 + " ---Unsupported Format")
-		}
-		return img1, err2
-	}
-	return img, err1
-}
-*/
