@@ -1,49 +1,72 @@
-package cvdhelper_test
+package cvdh_test
 
 import (
 	"testing"
 
-	"github.com/dereklstinson/cvdhelper"
+	cvdh "github.com/dereklstinson/cvdhelper"
 )
-
-const mpiiimgaelocation = "/home/derek/Desktop/mpii-images/"
 
 //asdf
 func TestGetImages(t *testing.T) {
-	paths, err := cvdhelper.GetPaths(mpiiimgaelocation, []string{"2.jpg"})
+	paths, err := cvdh.GetPaths("./testimgs/", []string{".jpg", ".png"})
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = cvdhelper.GetImages(paths, 24)
+	threads := len(paths) /*don't do this. I am only doing this because I have 4 images I am testing.
+	If you have 100,000 images the program will crash.  Use this threads=min(number of cputhreads,len(images))
+	*/
+
+	imgs, err := cvdh.GetImagesHD(paths, threads)
 	if err != nil {
 		t.Error(err)
+	}
+
+	if len(imgs) != len(paths) {
+		t.Error("Length of imgs and paths needs to be the same", len(imgs), len(paths))
+	}
+	minh, minw := cvdh.FindMinHW(imgs)
+	if minh == 0 && minw == 0 {
+		t.Error(minh, minw)
+	}
+	//Redundacy
+	imgs, err = cvdh.GetImagesHD(paths, 1)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(imgs) != len(paths) {
+		t.Error("Length of imgs and paths needs to be the same", len(imgs), len(paths))
+	}
+	minh, minw = cvdh.FindMinHW(imgs)
+	if minh == 0 && minw == 0 {
+		t.Error(minh, minw)
 	}
 
 }
 
 func TestGetPaths(t *testing.T) {
-	paths, err := cvdhelper.GetPaths("./testimgs/", []string{".png"})
+	paths, err := cvdh.GetPaths("./testimgs/", []string{".png"})
 	if err != nil {
 		t.Error(err)
 	}
 	if len(paths) != 3 {
 		t.Error("Should Be three")
 	}
-	paths, err = cvdhelper.GetPaths("./testimgs/", nil)
+	paths, err = cvdh.GetPaths("./testimgs/", nil)
 	if err != nil {
 		t.Error(err)
 	}
 	if len(paths) != 5 {
 		t.Error("Should Be five")
 	}
-	paths, err = cvdhelper.GetPaths("./testimgs/", []string{".jpg"})
+	paths, err = cvdh.GetPaths("./testimgs/", []string{".jpg"})
 	if err != nil {
 		t.Error(err)
 	}
 	if len(paths) != 1 {
 		t.Error("Should Be one")
 	}
-	paths, err = cvdhelper.GetPaths("./testimgs/", []string{".jpg", ".png"})
+	paths, err = cvdh.GetPaths("./testimgs/", []string{".jpg", ".png"})
 	if err != nil {
 		t.Error(err)
 	}
@@ -53,12 +76,12 @@ func TestGetPaths(t *testing.T) {
 }
 
 func TestGetImageHD(t *testing.T) {
-	paths, err := cvdhelper.GetPaths("./testimgs/", []string{".jpg", ".png"})
+	paths, err := cvdh.GetPaths("./testimgs/", []string{".jpg", ".png"})
 	if err != nil {
 		t.Error(err)
 	}
 	for _, path := range paths {
-		img, err := cvdhelper.GetImageHD(path)
+		img, err := cvdh.GetImageHD(path)
 		if err != nil {
 			t.Error(err)
 		}
@@ -66,12 +89,12 @@ func TestGetImageHD(t *testing.T) {
 			t.Error("Shouldn't Be nil")
 		}
 	}
-	paths, err = cvdhelper.GetPaths("./testimgs/", []string{".mat"})
+	paths, err = cvdh.GetPaths("./testimgs/", []string{".mat"})
 	if err != nil {
 		t.Error(err)
 	}
 	for _, path := range paths {
-		img, err := cvdhelper.GetImageHD(path)
+		img, err := cvdh.GetImageHD(path)
 		if err == nil {
 			t.Error("This should have been nil")
 		}

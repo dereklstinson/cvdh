@@ -1,8 +1,7 @@
-package cvdhelper
+package cvdh
 
 import (
 	"errors"
-	"fmt"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -62,8 +61,8 @@ func GetImagesHD(paths []string, goroutines int) ([]image.Image, error) {
 		return nil, errors.New("number of paths can't be less than number of goroutines")
 	}
 
-	imgs := make([]image.Image, len(paths))
 	if goroutines == 1 {
+		imgs := make([]image.Image, len(paths))
 		var err error
 		for i, path := range paths {
 			imgs[i], err = GetImageHD(path)
@@ -71,85 +70,86 @@ func GetImagesHD(paths []string, goroutines int) ([]image.Image, error) {
 				return nil, err
 			}
 		}
+		return imgs, nil
 	}
-	imgchans := make([]chan image.Image, goroutines)
+	imgchans := make([]chan imgmessage, goroutines)
 
-	err := goranges(imgs, paths, imgchans)
-	return imgs, err
+	return goranges(paths, imgchans)
+
 }
-func goranges(imgs []image.Image, paths []string, imgchans []chan image.Image) error {
-	offset := len(imgs) / len(imgchans)
-	errs := make([]chan int, len(imgchans))
+func goranges(paths []string, imgchans []chan imgmessage) ([]image.Image, error) {
+	offset := len(paths) / len(imgchans)
+	imgs := make([][]image.Image, len(imgchans))
+	errs := make([]error, len(imgchans))
 	var wg sync.WaitGroup
 	for i, imgchan := range imgchans {
-
-		errs[i] = make(chan int, 1)
-		imgchan = make(chan image.Image, 10)
-
 		wg.Add(1)
+		imgchan = make(chan imgmessage, 2)
 		startat := i * offset
-		endat := startat + offset - 1
+		endat := startat + offset //- 1
+
+		go func(imgchan chan imgmessage, i int) {
+			msg := <-imgchan
+
+			if msg.err != nil {
+				errs[i] = msg.err
+			}
+			imgs[msg.worker] = msg.imgs
+			wg.Done()
+		}(imgchan, i)
+
 		if endat < len(imgs) {
-			go channelsitter(imgs[startat:endat], imgchan, &wg)
-			go imagefinder(imgchan, errs[i], paths[startat:endat])
+
+			go imagefinder(imgchan, i, paths[startat:endat])
 
 		} else {
-			go channelsitter(imgs[startat:], imgchan, &wg)
-			go imagefinder(imgchan, errs[i], paths[startat:])
+
+			go imagefinder(imgchan, i, paths[startat:])
 
 		}
 
 	}
-	for _, err := range errs {
-		x := <-err
-		if x != 0 {
-			return errors.New("1")
+
+	wg.Wait()
+	for _, e := range errs {
+		if e != nil {
+			return nil, e
 		}
 	}
+	imgs2 := make([]image.Image, 0)
+	for i := range imgs {
+		imgs2 = append(imgs2, imgs[i]...)
+	}
 
-	wg.Wait() //this is probably redundant
-	return nil
+	return imgs2, nil
 }
-func imagefinder(imgchan chan<- image.Image, errchan chan<- int, paths []string) {
-	for _, path := range paths {
+func imagefinder(imgchan chan<- imgmessage, index int, paths []string) {
+	imgs := make([]image.Image, len(paths))
+	for i, path := range paths {
 		img, err := GetImageHD(path)
 
 		if err != nil {
+			imgchan <- imgmessage{
+				worker: index,
+				err:    err,
+			}
 			close(imgchan)
-			errchan <- 1 //panic(err)
+
 		}
 
-		imgchan <- img
-
-	}
-	fmt.Println("Didn't Find an Error closing image chan")
-	close(imgchan)
-	fmt.Println("Sending a zero")
-	errchan <- 0
-}
-func channelsitter(imgs []image.Image, imgchan <-chan image.Image, wg *sync.WaitGroup) {
-	i := 0
-	for img := range imgchan {
 		imgs[i] = img
-		i++
+
 	}
-	fmt.Println("Sending Done for waitgroup")
-	wg.Done()
+	imgchan <- imgmessage{
+		worker: index,
+		imgs:   imgs,
+	}
+	close(imgchan)
+
 }
 
-/*
-//GetImage takes an io.Reader and first checks to see if it is a jpeg. If not it will check to see if it is an png.
-func GetImage(r io.Reader) (image.Image, error) {
-	img, err1 := jpeg.Decode(r)
-	if err1 != nil {
-		strerr := err1.Error()
-		img1, err2 := png.Decode(r)
-		if err2 != nil {
-			strerr2 := err2.Error()
-			return nil, errors.New("JPEG: " + strerr + ", PNG: " + strerr2 + " ---Unsupported Format")
-		}
-		return img1, err2
-	}
-	return img, err1
+type imgmessage struct {
+	worker int
+	imgs   []image.Image
+	err    error
 }
-*/
