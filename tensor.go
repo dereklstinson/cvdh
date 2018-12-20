@@ -41,6 +41,18 @@ func MakeTensor4d(dims []int, NCHW bool) Tensor4d {
 
 }
 
+//ZeroClone a a Tensor4d with the same specs but with zeros in the values.
+func (b *Tensor4d) ZeroClone() Tensor4d {
+	var a Tensor4d
+	a.Data = make([]float32, len(b.Data))
+
+	a.Dims = make([]int, len(b.Dims))
+	copy(a.Dims, b.Dims)
+	a.NCHW = b.NCHW
+	return a
+
+}
+
 //Clone returns a copy the Tensor4d
 func (b *Tensor4d) Clone() Tensor4d {
 	var a Tensor4d
@@ -286,6 +298,68 @@ func Create4dTensor(imgs []image.Image, NCHW bool) Tensor4d {
 		NCHW: NCHW,
 	}
 }
+
+//MirroredDim will return the mirrored position given the dim size and position in the dim given.
+func MirroredDim(dimsize int, position int) int {
+	return (dimsize - 1) - position
+}
+
+//MirrorCopy changes each of the batch images into a mirrored reflection
+func (b *Tensor4d) MirrorCopy() Tensor4d {
+	cpy := b.ZeroClone()
+	var (
+		n int
+		c int
+		h int
+		w int
+	)
+	var flipped int
+	switch b.NCHW {
+
+	case true:
+
+		n = b.Dims[0]
+		c = b.Dims[1]
+		h = b.Dims[2]
+		w = b.Dims[3]
+		batchvol := c * h * w
+		chanvol := h * w
+		hvol := w
+		for i := 0; i < n; i++ {
+			for j := 0; j < c; j++ {
+				for k := 0; k < h; k++ {
+					for l := 0; l < w; l++ {
+						flipped = (w - 1) - l
+						cpy.Data[(i*batchvol)+(j*chanvol)+(k*hvol)+flipped] = b.Data[(i*batchvol)+(j*chanvol)+(k*hvol)+l]
+					}
+				}
+			}
+		}
+
+	case false:
+
+		n = b.Dims[0]
+		h = b.Dims[1]
+		w = b.Dims[2]
+		c = b.Dims[3]
+		batchvol := c * h * w
+		hvol := c * w
+		wvol := c
+		for i := 0; i < n; i++ {
+			for j := 0; j < h; j++ {
+				for k := 0; k < w; k++ {
+					flipped = (w - 1) - k
+					for l := 0; l < c; l++ {
+
+						cpy.Data[(i*batchvol)+(j*hvol)+(flipped*wvol)+l] = b.Data[(i*batchvol)+(j*hvol)+(k*wvol)+l]
+					}
+				}
+			}
+		}
+	}
+	return cpy
+}
+
 func chw(a image.Image) []float32 {
 	c := 3
 	ay := a.Bounds().Max.Y
