@@ -41,7 +41,10 @@ func TestGetImages(t *testing.T) {
 	if minh == 0 && minw == 0 {
 		t.Error(minh, minw)
 	}
-
+	avgh, avgw := cvdh.FindMinHW(imgs)
+	if avgh == 0 && avgw == 0 {
+		t.Error(avgh, avgw)
+	}
 }
 
 func TestGetPaths(t *testing.T) {
