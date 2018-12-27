@@ -134,7 +134,7 @@ func imagefinder(imgchan chan<- imgmessage, index int, paths []string) {
 				err:    err,
 			}
 			close(imgchan)
-
+			return
 		}
 
 		imgs[i] = img
@@ -145,6 +145,7 @@ func imagefinder(imgchan chan<- imgmessage, index int, paths []string) {
 		imgs:   imgs,
 	}
 	close(imgchan)
+	return
 
 }
 
