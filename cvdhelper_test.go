@@ -6,7 +6,6 @@ import (
 	cvdh "github.com/dereklstinson/cvdhelper"
 )
 
-//asdf
 func TestGetImages(t *testing.T) {
 	paths, err := cvdh.GetPaths("./testimgs/", []string{".jpg", ".png"})
 	if err != nil {
