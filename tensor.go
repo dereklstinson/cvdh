@@ -41,6 +41,51 @@ func MakeTensor4d(dims []int, NCHW bool) Tensor4d {
 
 }
 
+//Dims64 returns the dims in type int64
+func (b *Tensor4d) Dims64() []int64 {
+	dims := make([]int64, len(b.Dims))
+	for i := range dims {
+		dims[i] = int64(b.Dims[i])
+	}
+	return dims
+}
+
+//DimsU64 returns the dims in type uint64
+func (b *Tensor4d) DimsU64() []uint64 {
+	dims := make([]uint64, len(b.Dims))
+	for i := range dims {
+		dims[i] = uint64(b.Dims[i])
+	}
+	return dims
+}
+
+//DimsUInt returns the dims in type uint
+func (b *Tensor4d) DimsUInt() []uint {
+	dims := make([]uint, len(b.Dims))
+	for i := range dims {
+		dims[i] = uint(b.Dims[i])
+	}
+	return dims
+}
+
+//DimsU32 returns the dims in type uint32
+func (b *Tensor4d) DimsU32() []uint32 {
+	dims := make([]uint32, len(b.Dims))
+	for i := range dims {
+		dims[i] = uint32(b.Dims[i])
+	}
+	return dims
+}
+
+//Dims32 returns the dims in type int32
+func (b *Tensor4d) Dims32() []int32 {
+	dims := make([]int32, len(b.Dims))
+	for i := range dims {
+		dims[i] = int32(b.Dims[i])
+	}
+	return dims
+}
+
 //ZeroClone a a Tensor4d with the same specs but with zeros in the values.
 func (b *Tensor4d) ZeroClone() Tensor4d {
 	var a Tensor4d
