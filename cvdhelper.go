@@ -88,7 +88,7 @@ func goranges(paths []string, imgchans []chan imgmessage) ([]image.Image, error)
 		startat := i * offset
 		endat := startat + offset //- 1
 
-		go func(imgchan chan imgmessage, i int) {
+		go func(imgchan <-chan imgmessage, i int) {
 			msg := <-imgchan
 
 			if msg.err != nil {
@@ -98,7 +98,7 @@ func goranges(paths []string, imgchans []chan imgmessage) ([]image.Image, error)
 			wg.Done()
 		}(imgchan, i)
 
-		if endat < len(imgs) {
+		if endat < len(paths) {
 
 			go imagefinder(imgchan, i, paths[startat:endat])
 
@@ -124,6 +124,7 @@ func goranges(paths []string, imgchans []chan imgmessage) ([]image.Image, error)
 	return imgs2, nil
 }
 func imagefinder(imgchan chan<- imgmessage, index int, paths []string) {
+
 	imgs := make([]image.Image, len(paths))
 	for i, path := range paths {
 		img, err := GetImageHD(path)
