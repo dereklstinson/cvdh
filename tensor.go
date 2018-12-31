@@ -288,6 +288,62 @@ func chwtoimage(data []float32, dims []int) image.Image {
 
 }
 
+//Create4dTensorGray creates a tensor from the largest dims found in the img batch it will create black bars on the sides of the positions that don't fit.
+//channels is fixed to 1. This also scales the values to 0 to 255.
+func Create4dTensorGray(imgs []image.Image, NCHW bool) Tensor4d {
+	h, w := FindMaxHW(imgs)
+	var dims []int
+	if NCHW {
+		dims = []int{len(imgs), 1, h, w}
+	} else {
+		dims = []int{len(imgs), h, w, 1}
+	}
+	hwcvol := findvol([]int{1, h, w})
+
+	data := make([]float32, findvol(dims))
+	for i, img := range imgs {
+		y := img.Bounds().Max.Y
+		x := img.Bounds().Max.X
+		hoff := (h - y) / 2
+		woff := (w - x) / 2
+		if NCHW {
+			imgdata := hwgray(img)
+			batchvol := i * hwcvol
+			for j := 0; j < 1; j++ {
+				dcpos := h * w * j
+				scpos := y * x * j
+				for k := 0; k < y; k++ {
+					dhpos := (hoff + k) * w
+					shpos := (k * x)
+					for l := 0; l < x; l++ {
+						data[(batchvol + dcpos + dhpos + l + woff)] = imgdata[scpos+shpos+l]
+					}
+				}
+			}
+
+		} else {
+			imgdata := hwgray(img)
+			batchvol := i * hwcvol
+			for j := 0; j < y; j++ {
+				dhpos := 3 * w * (j + hoff)
+				shpos := 3 * x * j
+				for k := 0; k < x; k++ {
+					dwpos := (woff + k) * 3
+					swpos := (k * 3)
+					for l := 0; l < 1; l++ {
+						data[(batchvol + dhpos + dwpos + l)] = imgdata[shpos+swpos+l]
+					}
+				}
+			}
+		}
+	}
+	return Tensor4d{
+		Dims: dims,
+		Data: data,
+		NCHW: NCHW,
+	}
+}
+
 //Create4dTensor creates a tensor from the largest dims found in the img batch it will create black bars on the sides of the positions that don't fit.
 //channels is fixed to 3. This also scales the values to 0 to 255.
 func Create4dTensor(imgs []image.Image, NCHW bool) Tensor4d {
@@ -404,7 +460,24 @@ func (b *Tensor4d) MirrorCopy() Tensor4d {
 	}
 	return cpy
 }
+func hwgray(a image.Image) []float32 {
 
+	ay := a.Bounds().Max.Y
+	ax := a.Bounds().Max.X
+
+	array := make([]float32, ay*ax)
+	for i := 0; i < ay; i++ {
+		for j := 0; j < ax; j++ {
+			ra, ga, ba, _ := a.At(j, i).RGBA()
+			avg := float32(ra+ga+ba) / float32(3)
+			array[(i*ax)+(j)] = avg
+
+		}
+	}
+	//65535/x=255 ...x=257
+	divideall(float32(257), array)
+	return array
+}
 func chw(a image.Image) []float32 {
 	c := 3
 	ay := a.Bounds().Max.Y
