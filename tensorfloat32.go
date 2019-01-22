@@ -460,6 +460,7 @@ func (b *Tensor4d) MirrorCopy() Tensor4d {
 	}
 	return cpy
 }
+
 func hwgray(a image.Image) []float32 {
 
 	ay := a.Bounds().Max.Y
@@ -523,6 +524,12 @@ func findvol(dims []int) (vol int) {
 		vol *= dim
 	}
 	return vol
+}
+
+func divideallint32(value int32, array []int32) {
+	for i := 0; i < len(array); i++ {
+		array[i] = array[i] / value
+	}
 }
 
 func divideall(value float32, array []float32) {
