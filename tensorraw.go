@@ -66,6 +66,15 @@ func getbytes(input DataType) int {
 	return 0
 }
 
+//Dims32 returns the dims in Dims32 format
+func (t *TensorRaw) Dims32() []int32 {
+	dims := make([]int32, len(t.Dims))
+	for i := range dims {
+		dims[i] = int32(t.Dims[i])
+	}
+	return dims
+}
+
 //MakeTensorRawZeros makes a zero initialzed tensor
 func MakeTensorRawZeros(dims []int, dtype DataType, NCHW bool) *TensorRaw {
 	runtime.CPUProfile()
@@ -267,6 +276,18 @@ func (t *TensorRaw) FillSlice(input interface{}) error {
 
 	}
 	return errors.New("Unsupported slice")
+}
+
+//FindAverage finds the average byte
+func FindAverage(data []TensorRaw) byte {
+	var adder uint64
+	var counter uint64
+	for i := range data {
+		for j := range data[i].Data {
+			adder += uint64(data[i].Data[j])
+		}
+	}
+	return byte(adder / counter)
 }
 
 //MakeTensorRaw makes a raw tensor from the datatype passed
