@@ -285,6 +285,8 @@ func FindAverage(data []TensorRaw) byte {
 	for i := range data {
 		for j := range data[i].Data {
 			adder += uint64(data[i].Data[j])
+
+			counter++
 		}
 	}
 	return byte(adder / counter)
@@ -361,9 +363,9 @@ func finddatatype(input interface{}) DataType {
 
 }
 
-//CreateRawTensorGrayByte creates a tensor from the largest dims found in the img batch it will create black bars on the sides of the positions that don't fit.
+//CreateRawTensorGrayInt8 creates a tensor from the largest dims found in the img batch it will create black bars on the sides of the positions that don't fit.
 //channels is fixed to 1. This also scales the values to 0 to 255.
-func CreateRawTensorGrayByte(imgs []image.Image, NCHW bool) TensorRaw {
+func CreateRawTensorGrayInt8(imgs []image.Image, NCHW bool) TensorRaw {
 	h, w := FindMaxHW(imgs)
 	var dims []int
 	if NCHW {
@@ -380,7 +382,7 @@ func CreateRawTensorGrayByte(imgs []image.Image, NCHW bool) TensorRaw {
 		hoff := (h - y) / 2
 		woff := (w - x) / 2
 		if NCHW {
-			imgdata := hwgraybyte(img)
+			imgdata := hwgraybyteint8(img)
 			batchvol := i * hwcvol
 			for j := 0; j < 1; j++ {
 				dcpos := h * w * j
@@ -395,7 +397,7 @@ func CreateRawTensorGrayByte(imgs []image.Image, NCHW bool) TensorRaw {
 			}
 
 		} else {
-			imgdata := hwgraybyte(img)
+			imgdata := hwgraybyteint8(img)
 			batchvol := i * hwcvol
 			for j := 0; j < y; j++ {
 				dhpos := 3 * w * (j + hoff)
@@ -451,7 +453,7 @@ func Uint8toInt8TensorRawFromAverage(tensors []TensorRaw, avg uint8) error {
 	}
 	return nil
 }
-func hwgraybyte(a image.Image) []byte {
+func hwgraybyteint8(a image.Image) []byte {
 	ay := a.Bounds().Max.Y
 	ax := a.Bounds().Max.X
 
@@ -460,7 +462,8 @@ func hwgraybyte(a image.Image) []byte {
 		for j := 0; j < ax; j++ {
 			ra, ga, ba, _ := a.At(j, i).RGBA()
 			avg := (ra + ga + ba) / (3 * 257)
-			array[(i*ax)+(j)] = byte(avg)
+			avg2 := int8(int32(avg) - int32(128))
+			array[(i*ax)+(j)] = byte(avg2)
 
 		}
 	}
