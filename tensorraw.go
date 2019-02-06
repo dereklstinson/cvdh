@@ -462,7 +462,10 @@ func hwgraybyteint8(a image.Image) []byte {
 		for j := 0; j < ax; j++ {
 			ra, ga, ba, _ := a.At(j, i).RGBA()
 			avg := (ra + ga + ba) / (3 * 257)
-			avg2 := int8(int32(avg) - int32(128))
+			if avg > 255 {
+				avg = 255
+			}
+			avg2 := uint8(avg) // - int32(129))
 			array[(i*ax)+(j)] = byte(avg2)
 
 		}
