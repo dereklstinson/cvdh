@@ -2,21 +2,116 @@ package cvdh
 
 import (
 	"errors"
+	"github.com/dereklstinson/half"
 	"image"
 	"image/color"
 )
 
 //Tensor4d is a float32 representation of a 4d tensor
 type Tensor4d struct {
-	Dims []int
-	NCHW bool
-	Data []float32
+	dims   []int
+	nchw   bool
+	stride []int
+	data   []float32
+}
+
+//Data returns a copy of the data
+func (b *Tensor4d) Data() (datacopy []float32) {
+	datacopy = make([]float32, len(b.data))
+	copy(datacopy, b.data)
+	return datacopy
+}
+
+//DataFP16 returns a copy of the Tensor in FP16
+func (b *Tensor4d) DataFP16() (copy []half.Float16) {
+	return half.NewFloat16Array(b.data)
+
+}
+
+//Place places the value in the position passed
+func (b *Tensor4d) Place(position []int, value float32) {
+	if b.stride == nil {
+		b.stride = b.Stride()
+	}
+	pos := 0
+	for i := range position {
+
+		pos += b.stride[i] * position[i]
+	}
+
+	b.data[pos] = value
+}
+
+//Get gets the value at position
+func (b *Tensor4d) Get(position []int) (value float32) {
+	if b.stride == nil {
+		b.stride = b.Stride()
+	}
+	pos := 0
+	for i := range position {
+
+		pos += b.stride[i] * position[i]
+	}
+
+	value = b.data[pos]
+	return value
+}
+
+//TransformTensorCopy returns a copy of the tensor in another format.
+//If tensor was in NHWC the it will return one in NCHW.
+func (b *Tensor4d) TransformTensorCopy() (cpy *Tensor4d) {
+	tdata := make([]float32, b.Vol())
+	bstride := b.Stride()
+	if b.nchw {
+
+		cpy = &Tensor4d{
+			dims: []int{b.dims[0], b.dims[2], b.dims[3], b.dims[1]},
+			nchw: false,
+			data: tdata,
+		}
+		tstride := cpy.Stride()
+
+		for i := 0; i < (b.dims[0]); i++ { //n
+			for j := 0; j < b.dims[1]; j++ { //c
+				for k := 0; k < b.dims[2]; k++ { //h
+					for l := 0; l < b.dims[3]; l++ { //w
+						cpy.data[i*tstride[0]+(j*tstride[3])+(k*tstride[1])+(l*tstride[2])] = b.data[i*bstride[0]+j*bstride[1]+k*bstride[2]+l*bstride[3]]
+					}
+				}
+			}
+		}
+		return cpy
+	}
+
+	cpy = &Tensor4d{
+		dims: []int{b.dims[0], b.dims[3], b.dims[1], b.dims[2]},
+		nchw: true,
+		data: tdata,
+	}
+	tstride := cpy.Stride()
+
+	for i := 0; i < (b.dims[0]); i++ { //n
+		for j := 0; j < b.dims[1]; j++ { //h
+			for k := 0; k < b.dims[2]; k++ { //w
+				for l := 0; l < b.dims[3]; l++ { //c
+					cpy.data[i*tstride[0]+(l*tstride[1])+(j*tstride[2])+(k*tstride[3])] = b.data[i*bstride[0]+j*bstride[1]+k*bstride[2]+l*bstride[3]]
+				}
+			}
+		}
+	}
+	return cpy
+
+}
+
+//NCHW if true tensor in NCHW format
+func (b *Tensor4d) NCHW() bool {
+	return b.nchw
 }
 
 //Min returns the minimum value of all data
 func (b *Tensor4d) Min() (min float32) {
 	min = 99999999
-	for _, data := range b.Data {
+	for _, data := range b.data {
 		if data < min {
 			min = data
 		}
@@ -24,104 +119,119 @@ func (b *Tensor4d) Min() (min float32) {
 	return min
 }
 
+//Stride returns the stride of the tensor offset
+func (b *Tensor4d) Stride() (strides []int) {
+	strides = make([]int, len(b.dims))
+	stride := 1
+	for i := range strides {
+		strides[i] = stride
+		stride *= b.dims[i]
+	}
+	return strides
+}
+
 //Vol returns the volume of the 4d tensor array
 func (b *Tensor4d) Vol() int {
-	return findvol(b.Dims)
+	return findvol(b.dims)
 }
 
 //MakeTensor4d makes a zeroed tensor4d
-func MakeTensor4d(dims []int, NCHW bool) Tensor4d {
+func MakeTensor4d(dims []int, NCHW bool) *Tensor4d {
 	dims2 := make([]int, len(dims))
 	copy(dims2, dims)
-	return Tensor4d{
-		Data: make([]float32, findvol(dims)),
-		Dims: dims2,
-		NCHW: NCHW,
+	return &Tensor4d{
+		data: make([]float32, findvol(dims)),
+		dims: dims2,
+		nchw: NCHW,
 	}
 
 }
 
+/*
+func MakeStride4dTensor(dims,strides []int, NCHW bool)*Tensor4d{
+	dims2:=make()
+}
+*/
+
 //Dims64 returns the dims in type int64
 func (b *Tensor4d) Dims64() []int64 {
-	dims := make([]int64, len(b.Dims))
+	dims := make([]int64, len(b.dims))
 	for i := range dims {
-		dims[i] = int64(b.Dims[i])
+		dims[i] = int64(b.dims[i])
 	}
 	return dims
 }
 
 //DimsU64 returns the dims in type uint64
 func (b *Tensor4d) DimsU64() []uint64 {
-	dims := make([]uint64, len(b.Dims))
+	dims := make([]uint64, len(b.dims))
 	for i := range dims {
-		dims[i] = uint64(b.Dims[i])
+		dims[i] = uint64(b.dims[i])
 	}
 	return dims
 }
 
 //DimsUInt returns the dims in type uint
 func (b *Tensor4d) DimsUInt() []uint {
-	dims := make([]uint, len(b.Dims))
+	dims := make([]uint, len(b.dims))
 	for i := range dims {
-		dims[i] = uint(b.Dims[i])
+		dims[i] = uint(b.dims[i])
 	}
 	return dims
 }
 
 //DimsU32 returns the dims in type uint32
 func (b *Tensor4d) DimsU32() []uint32 {
-	dims := make([]uint32, len(b.Dims))
+	dims := make([]uint32, len(b.dims))
 	for i := range dims {
-		dims[i] = uint32(b.Dims[i])
+		dims[i] = uint32(b.dims[i])
 	}
 	return dims
 }
 
 //Dims32 returns the dims in type int32
 func (b *Tensor4d) Dims32() []int32 {
-	dims := make([]int32, len(b.Dims))
+	dims := make([]int32, len(b.dims))
 	for i := range dims {
-		dims[i] = int32(b.Dims[i])
+		dims[i] = int32(b.dims[i])
 	}
 	return dims
 }
 
 //ZeroClone a a Tensor4d with the same specs but with zeros in the values.
-func (b *Tensor4d) ZeroClone() Tensor4d {
-	var a Tensor4d
-	a.Data = make([]float32, len(b.Data))
-
-	a.Dims = make([]int, len(b.Dims))
-	copy(a.Dims, b.Dims)
-	a.NCHW = b.NCHW
+func (b *Tensor4d) ZeroClone() *Tensor4d {
+	a := new(Tensor4d)
+	a.data = make([]float32, len(b.data))
+	a.dims = make([]int, len(b.dims))
+	copy(a.dims, b.dims)
+	a.nchw = b.nchw
 	return a
-
 }
 
 //Clone returns a copy the Tensor4d
-func (b *Tensor4d) Clone() Tensor4d {
-	var a Tensor4d
-	a.Data = make([]float32, len(b.Data))
-	copy(a.Data, b.Data)
-	a.Dims = make([]int, len(b.Dims))
-	copy(a.Dims, b.Dims)
-	a.NCHW = b.NCHW
+func (b *Tensor4d) Clone() *Tensor4d {
+	a := new(Tensor4d)
+	a.data = make([]float32, len(b.data))
+	copy(a.data, b.data)
+	a.dims = make([]int, len(b.dims))
+	copy(a.dims, b.dims)
+	a.nchw = b.nchw
 	return a
 
 }
 
 //Avg returns the average value of all data
 func (b *Tensor4d) Avg() (avg float32) {
-	for _, data := range b.Data {
+	for _, data := range b.data {
 		avg += data
 	}
-	return avg / float32(len(b.Data))
+	return avg / float32(len(b.data))
 }
 
 //Max returns the maximum value of all data
 func (b *Tensor4d) Max() (max float32) {
 	max = -99999999
-	for _, data := range b.Data {
+	for _, data := range b.data {
 		if data > max {
 			max = data
 		}
@@ -134,28 +244,28 @@ func (b *Tensor4d) Divide(value float32) {
 	if value == 1 {
 		return
 	}
-	for i := range b.Data {
-		b.Data[i] = b.Data[i] / value
+	for i := range b.data {
+		b.data[i] = b.data[i] / value
 	}
 }
 
-//Multiply multiplies all elemenents by value passed
+//Multiply multiplies all elements by value passed
 func (b *Tensor4d) Multiply(value float32) {
 	if value == 1 {
 		return
 	}
-	for i := range b.Data {
-		b.Data[i] = b.Data[i] * value
+	for i := range b.data {
+		b.data[i] = b.data[i] * value
 	}
 }
 
-//Add addes all elements by value passed
+//Add adds all elements by value passed
 func (b *Tensor4d) Add(value float32) {
 	if value == 0 {
 		return
 	}
-	for i := range b.Data {
-		b.Data[i] = b.Data[i] + value
+	for i := range b.data {
+		b.data[i] = b.data[i] + value
 	}
 }
 
@@ -163,13 +273,13 @@ func (b *Tensor4d) Add(value float32) {
 //It will rescale all values to fit between 0 and 255.  This will scale all the values on all of the NCHW or NHWC data as a whole.
 //not on individual items ei per HWC or CHW
 func (b *Tensor4d) ToImages() ([]image.Image, error) {
-	if b.NCHW {
-		if !(b.Dims[1] == 1 || b.Dims[1] == 3) {
+	if b.nchw {
+		if !(b.dims[1] == 1 || b.dims[1] == 3) {
 			return nil, errors.New("Channel Needs to be 1 or 3")
 		}
 	}
-	if !b.NCHW {
-		if !(b.Dims[3] == 1 || b.Dims[3] == 3) {
+	if !b.nchw {
+		if !(b.dims[3] == 1 || b.dims[3] == 3) {
 			return nil, errors.New("Channel Needs to be 1 or 3")
 		}
 	}
@@ -181,11 +291,11 @@ func (b *Tensor4d) ToImages() ([]image.Image, error) {
 	a.Multiply(255 / max)
 
 	imgs := make([]image.Image, 0)
-	hwcvol := findvol(a.Dims[1:])
-	for i := 0; i < a.Dims[0]; i++ {
-		data := a.Data[i*hwcvol : (i+1)*hwcvol]
-		dims := a.Dims[1:]
-		if a.NCHW {
+	hwcvol := findvol(a.dims[1:])
+	for i := 0; i < a.dims[0]; i++ {
+		data := a.data[i*hwcvol : (i+1)*hwcvol]
+		dims := a.dims[1:]
+		if a.nchw {
 			imgs = append(imgs, chwtoimage(data, dims))
 		} else {
 			imgs = append(imgs, hwctoimage(data, dims))
@@ -290,7 +400,7 @@ func chwtoimage(data []float32, dims []int) image.Image {
 
 //Create4dTensorGray creates a tensor from the largest dims found in the img batch it will create black bars on the sides of the positions that don't fit.
 //channels is fixed to 1. This also scales the values to 0 to 255.
-func Create4dTensorGray(imgs []image.Image, NCHW bool) Tensor4d {
+func Create4dTensorGray(imgs []image.Image, NCHW bool) *Tensor4d {
 	h, w := FindMaxHW(imgs)
 	var dims []int
 	if NCHW {
@@ -337,16 +447,16 @@ func Create4dTensorGray(imgs []image.Image, NCHW bool) Tensor4d {
 			}
 		}
 	}
-	return Tensor4d{
-		Dims: dims,
-		Data: data,
-		NCHW: NCHW,
+	return &Tensor4d{
+		dims: dims,
+		data: data,
+		nchw: NCHW,
 	}
 }
 
 //Create4dTensor creates a tensor from the largest dims found in the img batch it will create black bars on the sides of the positions that don't fit.
 //channels is fixed to 3. This also scales the values to 0 to 255.
-func Create4dTensor(imgs []image.Image, NCHW bool) Tensor4d {
+func Create4dTensor(imgs []image.Image, NCHW bool) *Tensor4d {
 	h, w := FindMaxHW(imgs)
 	var dims []int
 	if NCHW {
@@ -393,10 +503,10 @@ func Create4dTensor(imgs []image.Image, NCHW bool) Tensor4d {
 			}
 		}
 	}
-	return Tensor4d{
-		Dims: dims,
-		Data: data,
-		NCHW: NCHW,
+	return &Tensor4d{
+		dims: dims,
+		data: data,
+		nchw: NCHW,
 	}
 }
 
@@ -406,7 +516,7 @@ func MirroredDim(dimsize int, position int) int {
 }
 
 //MirrorCopy changes each of the batch images into a mirrored reflection
-func (b *Tensor4d) MirrorCopy() Tensor4d {
+func (b *Tensor4d) MirrorCopy() *Tensor4d {
 	cpy := b.ZeroClone()
 	var (
 		n int
@@ -415,14 +525,14 @@ func (b *Tensor4d) MirrorCopy() Tensor4d {
 		w int
 	)
 	var flipped int
-	switch b.NCHW {
+	switch b.nchw {
 
 	case true:
 
-		n = b.Dims[0]
-		c = b.Dims[1]
-		h = b.Dims[2]
-		w = b.Dims[3]
+		n = b.dims[0]
+		c = b.dims[1]
+		h = b.dims[2]
+		w = b.dims[3]
 		batchvol := c * h * w
 		chanvol := h * w
 		hvol := w
@@ -431,7 +541,7 @@ func (b *Tensor4d) MirrorCopy() Tensor4d {
 				for k := 0; k < h; k++ {
 					for l := 0; l < w; l++ {
 						flipped = (w - 1) - l
-						cpy.Data[(i*batchvol)+(j*chanvol)+(k*hvol)+flipped] = b.Data[(i*batchvol)+(j*chanvol)+(k*hvol)+l]
+						cpy.data[(i*batchvol)+(j*chanvol)+(k*hvol)+flipped] = b.data[(i*batchvol)+(j*chanvol)+(k*hvol)+l]
 					}
 				}
 			}
@@ -439,10 +549,10 @@ func (b *Tensor4d) MirrorCopy() Tensor4d {
 
 	case false:
 
-		n = b.Dims[0]
-		h = b.Dims[1]
-		w = b.Dims[2]
-		c = b.Dims[3]
+		n = b.dims[0]
+		h = b.dims[1]
+		w = b.dims[2]
+		c = b.dims[3]
 		batchvol := c * h * w
 		hvol := c * w
 		wvol := c
@@ -452,7 +562,7 @@ func (b *Tensor4d) MirrorCopy() Tensor4d {
 					flipped = (w - 1) - k
 					for l := 0; l < c; l++ {
 
-						cpy.Data[(i*batchvol)+(j*hvol)+(flipped*wvol)+l] = b.Data[(i*batchvol)+(j*hvol)+(k*wvol)+l]
+						cpy.data[(i*batchvol)+(j*hvol)+(flipped*wvol)+l] = b.data[(i*batchvol)+(j*hvol)+(k*wvol)+l]
 					}
 				}
 			}
@@ -536,4 +646,89 @@ func divideall(value float32, array []float32) {
 	for i := 0; i < len(array); i++ {
 		array[i] = array[i] / value
 	}
+}
+
+//ConcatTensors concats tensors into a new 4d tensor.  if dest is nil. Function will will allocate new memory and return a pointer to it.
+//
+// Tensors must all have the same batch, height, and width, Channel size can be different.
+//
+// Only NCHW for now
+func ConcatTensors(tensors []Tensor4d, dest *Tensor4d) *Tensor4d {
+	if dest == nil {
+		var (
+			pb = tensors[0].dims[0]
+			c  int
+			ph = tensors[0].dims[2]
+			pw = tensors[0].dims[3]
+		)
+		for i := range tensors {
+			if pb != tensors[i].dims[0] {
+				return nil
+			}
+			c += tensors[i].dims[1]
+			if ph != tensors[i].dims[2] {
+				return nil
+			}
+			if pw != tensors[i].dims[3] {
+				return nil
+			}
+
+		}
+		dest = MakeTensor4d([]int{pb, c, ph, pw}, true)
+		koffset := 0
+		for i := range tensors {
+			for j := 0; j < pb; j++ {
+				for k := 0; k < tensors[i].dims[1]; k++ {
+					for l := 0; l < ph; l++ {
+						for m := 0; m < pw; m++ {
+							value := tensors[i].Get([]int{j, k, l, m})
+							dest.Place([]int{j, k + koffset, l, m}, value)
+						}
+					}
+				}
+				koffset += tensors[i].dims[1]
+			}
+
+		}
+		return dest
+	}
+	var (
+		pb = tensors[0].dims[0]
+		c  int
+		ph = tensors[0].dims[2]
+		pw = tensors[0].dims[3]
+	)
+	for i := range tensors {
+		if pb != tensors[i].dims[0] {
+			return nil
+		}
+		c += tensors[i].dims[1]
+		if ph != tensors[i].dims[2] {
+			return nil
+		}
+		if pw != tensors[i].dims[3] {
+			return nil
+		}
+
+	}
+	if dest.dims[1] != c {
+		return nil
+	}
+	koffset := 0
+	for i := range tensors {
+		for j := 0; j < pb; j++ {
+			for k := 0; k < tensors[i].dims[1]; k++ {
+				for l := 0; l < ph; l++ {
+					for m := 0; m < pw; m++ {
+						value := tensors[i].Get([]int{j, k, l, m})
+						dest.Place([]int{j, k + koffset, l, m}, value)
+					}
+				}
+			}
+			koffset += tensors[i].dims[1]
+		}
+
+	}
+	return dest
+
 }
