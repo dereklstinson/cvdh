@@ -111,8 +111,9 @@ func TestTensorOps(t *testing.T) {
 	if vol != 3*3*3*3 {
 		t.Error("Vol should have been 81 ")
 	}
-	tensor.Data[0] = 200
-	tensor.Data[4] = -200
+	tensor.Place([]int{0, 0, 0, 0}, 200)
+	tensor.Place([]int{0, 0, 1, 0}, -200)
+
 	max := tensor.Max()
 	min := tensor.Min()
 	if max != 200 {
