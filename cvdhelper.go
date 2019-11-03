@@ -11,7 +11,7 @@ import (
 	"sync"
 )
 
-//GetPaths will return the paths of all the files in the directory and sub directorys. If suffixes is nil then it will grab everything.
+//GetPaths will return the paths of all the files in the directory and sub directories. If suffixes is nil then it will grab everything.
 func GetPaths(folder string, withsuffixes []string) (paths []string, err error) {
 	paths = make([]string, 0)
 	err = filepath.Walk(folder, func(path string, info os.FileInfo, errw error) error {
