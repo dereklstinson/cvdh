@@ -3,7 +3,7 @@ package cvdh
 import "image"
 
 //FindImageStats will return some statistics of the images Size will return []int{h,w}
-func FindImageStats(imgs []image.Image) (max, min, mean, mode, median Size) {
+func FindImageStats(imgs []image.Image) (max, min, mean, mode, median []int) {
 	maxh, maxw := -99999999, -999999999
 	minh, minw := 9999999999, 9999999999
 	avgh, avgw := 0, 0
@@ -65,31 +65,31 @@ func FindImageStats(imgs []image.Image) (max, min, mean, mode, median Size) {
 			mediany = i
 		}
 	}
-	max = CreateSize([]int{maxh, maxw})
-	min = CreateSize([]int{minh, minw})
-	mean = CreateSize([]int{avgh / len(imgs), avgw / len(imgs)})
-	median = CreateSize([]int{mediany, medianx})
-	mode = CreateSize([]int{modey, modex})
+	max = ([]int{maxh, maxw})
+	min = ([]int{minh, minw})
+	mean = ([]int{avgh / len(imgs), avgw / len(imgs)})
+	median = ([]int{mediany, medianx})
+	mode = ([]int{modey, modex})
 	return max, min, mean, mode, median
 
 }
 
-//FindMaxSize returns Size in row major [h][w]
-func FindMaxSize(imgs []image.Image) Size {
+//FindMaxSize returns Size in row major [h,w]
+func FindMaxSize(imgs []image.Image) []int {
 	h, w := FindMaxHW(imgs)
-	return CreateSize([]int{h, w})
+	return ([]int{h, w})
 }
 
-//FindMinSize returns Size in row major [h][w]
-func FindMinSize(imgs []image.Image) Size {
+//FindMinSize returns Size in row major [h,w]
+func FindMinSize(imgs []image.Image) []int {
 	h, w := FindMinHW(imgs)
-	return CreateSize([]int{h, w})
+	return ([]int{h, w})
 }
 
-//FindAvgSize returns Size in row major [h][w]
-func FindAvgSize(imgs []image.Image) Size {
+//FindAvgSize returns Size in row major [h,w]
+func FindAvgSize(imgs []image.Image) []int {
 	h, w := FindAvgHW(imgs)
-	return CreateSize([]int{h, w})
+	return ([]int{h, w})
 }
 
 //FindMaxHW Will return the max h and w

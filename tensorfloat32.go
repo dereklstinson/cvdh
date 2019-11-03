@@ -650,10 +650,15 @@ func divideall(value float32, array []float32) {
 
 //ConcatTensors concats tensors into a new 4d tensor.  if dest is nil. Function will will allocate new memory and return a pointer to it.
 //
+//Example :
+//var dest *TensorD
+//dest=ConcatTensors(srcs,dest)
+//
+//
 // Tensors must all have the same batch, height, and width, Channel size can be different.
 //
 // Only NCHW for now
-func ConcatTensors(tensors []Tensor4d, dest *Tensor4d) *Tensor4d {
+func ConcatTensors(tensors []*Tensor4d, dest *Tensor4d) *Tensor4d {
 	if dest == nil {
 		var (
 			pb = tensors[0].dims[0]

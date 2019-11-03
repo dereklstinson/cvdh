@@ -6,19 +6,18 @@ import (
 )
 
 func main() {
-	max := cvdh.CreateSize([]int{512, 512, 3})
-	min := cvdh.CreateSize([]int{32, 32, 3})
+	max := ([]int{512, 512, 3})
+	min := ([]int{32, 32, 3})
 	hlper := cvdh.CreateRandomHelper(min, max)
 	iterations := 512
 	mininputsize := 64
 	for i := 0; i < iterations; i++ {
-		size := cvdh.CreateSize([]int{mininputsize + i, mininputsize + i, 3})
-		startpoint, box, err := hlper.ImageResizeOffset(size)
+		size := ([]int{mininputsize + i, mininputsize + i, 3})
+		pnt, bx, err := hlper.ImageResizeOffset(size)
 		if err != nil {
 			panic(err)
 		}
-		pnt := startpoint.Point()
-		bx := box.Size()
+
 		for j := range pnt {
 			if bx[j]+pnt[j] > mininputsize+i {
 				panic("larger than mininputsize + i")
