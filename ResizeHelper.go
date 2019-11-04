@@ -27,8 +27,8 @@ func CreateRandomHelper(min, max []int) *RandomHelper {
 	}
 }
 
-//ImageResizeOffset returns random input resize values.
-func (r *RandomHelper) ImageResizeOffset(inputdims []int) (offset, box []int, err error) {
+//ImageResizeOffset returns random crop point values in user's dim order
+func (r *RandomHelper) ImageResizeOffset(inputdims []int) (pmin, pmax []int, err error) {
 
 	if len(inputdims) != len(r.min) {
 		return nil, nil, errors.New("=input.Size() != r.min.Size() ")
@@ -38,36 +38,33 @@ func (r *RandomHelper) ImageResizeOffset(inputdims []int) (offset, box []int, er
 			return nil, nil, errors.New("input.Size() < r.min.Size() ")
 		}
 	}
-	box = make([]int, len(inputdims))
-	for i := range box {
+	pmax = make([]int, len(inputdims))
+	for i := range pmax {
 		if r.max[i] < inputdims[i] {
-			box[i] = r.max[i]
+			pmax[i] = r.max[i]
 		} else {
-			box[i] = inputdims[i]
+			pmax[i] = inputdims[i]
 		}
 	}
-	offset = make([]int, len(inputdims))
-	for i, max := range box {
+	pmin = make([]int, len(inputdims))
+	for i, max := range pmax {
 		min := r.min[i]
 		odimsize := inputdims[i]
-		dimsize := 0
-		if max-min == 0 {
-			dimsize = min
-		} else {
+		dimsize := min
+		if max-min != 0 {
 			dimsize = r.rng.Intn(max-min) + min
 		}
-		if odimsize-dimsize == 0 {
-			offset[i] = 0
-		} else {
-			offset[i] = r.rng.Intn(odimsize - dimsize)
+
+		if odimsize-dimsize != 0 {
+			pmin[i] = r.rng.Intn(odimsize - dimsize)
 		}
 
-		box[i] = dimsize //reusing mids for the new box size
+		pmax[i] = dimsize + pmin[i] //reusing mids for the new box size
 	}
 	//angle =
 
 	err = nil
-	return offset, box, err
+	return pmin, pmax, err
 }
 
 //Bool will return a random bool.

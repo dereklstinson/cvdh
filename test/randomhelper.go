@@ -13,17 +13,17 @@ func main() {
 	mininputsize := 64
 	for i := 0; i < iterations; i++ {
 		size := ([]int{mininputsize + i, mininputsize + i, 3})
-		pnt, bx, err := hlper.ImageResizeOffset(size)
+		cropmin, cropmax, err := hlper.ImageResizeOffset(size)
 		if err != nil {
 			panic(err)
 		}
 
-		for j := range pnt {
-			if bx[j]+pnt[j] > mininputsize+i {
+		for j := range cropmax {
+			if cropmax[j] > mininputsize+i {
 				panic("larger than mininputsize + i")
 			}
 		}
-		fmt.Println("offset:", pnt, "; Box:", bx)
+		fmt.Println("CropMin:", cropmin, "; CropMax:", cropmax)
 		fmt.Println("Random Bool:", hlper.Bool())
 		x := hlper.AngleDegrees32()
 
