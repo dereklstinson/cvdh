@@ -155,6 +155,8 @@ func GetStats(sizes [][]int) (max, min, mean, mode, median []int) {
 	mode = ([]int{modey, modex})
 	return max, min, mean, mode, median
 }
+
+//FindImageStatsFromPaths will return image stats from all the paths sent.
 func FindImageStatsFromPaths(paths []string, threads int) (max, min, mean, mode, median []int) {
 	maxh, maxw := -99999999, -999999999
 	minh, minw := 9999999999, 9999999999

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"github.com/dereklstinson/half"
 	"image"
-	"image/color"
 )
 
 //Tensor4d is a float32 representation of a 4d tensor
@@ -305,98 +304,6 @@ func (b *Tensor4d) ToImages() ([]image.Image, error) {
 
 	return imgs, nil
 }
-func hwctoimage(data []float32, dims []int) image.Image {
-	h := dims[0]
-	w := dims[1]
-	c := dims[2]
-
-	img := image.NewRGBA(image.Rect(0, 0, h, w))
-	if c == 1 {
-		for i := 0; i < h; i++ {
-			ht := i * w
-			for j := 0; j < w; j++ {
-				g := color.Gray{
-					Y: uint8(data[ht+j]),
-				}
-				img.Set(j, i, g)
-			}
-		}
-	} else if c == 3 {
-
-		for i := 0; i < h; i++ {
-			ht := i * w * c
-			for j := 0; j < w; j++ {
-				wh := j * c
-				r := uint8(data[ht+wh])
-				g := uint8(data[ht+wh+1])
-				b := uint8(data[ht+wh+2])
-				rgb := color.RGBA{R: r, G: g, B: b, A: uint8(255)}
-				img.Set(j, i, rgb)
-			}
-		}
-	} else if c == 4 {
-		for i := 0; i < h; i++ {
-			ht := i * w * c
-			for j := 0; j < w; j++ {
-				wh := j * c
-				r := uint8(data[ht+wh])
-				g := uint8(data[ht+wh+1])
-				b := uint8(data[ht+wh+2])
-				a := uint8(data[ht+wh+3])
-				rgba := color.RGBA{R: r, G: g, B: b, A: a}
-				img.Set(j, i, rgba)
-			}
-		}
-	}
-	return img
-
-}
-func chwtoimage(data []float32, dims []int) image.Image {
-	h := dims[1]
-	w := dims[2]
-	c := dims[0]
-	img := image.NewRGBA(image.Rect(0, 0, h, w))
-	if c == 1 {
-		for i := 0; i < h; i++ {
-			ht := i * w
-			for j := 0; j < w; j++ {
-				g := color.Gray{
-					Y: uint8(data[ht+j]),
-				}
-				img.Set(j, i, g)
-			}
-		}
-	} else if c == 3 {
-		chvol := h * w
-		for i := 0; i < h; i++ {
-			ht := i * w
-			for j := 0; j < w; j++ {
-
-				r := uint8(data[chvol*0+ht+j])
-				g := uint8(data[chvol*1+ht+j])
-				b := uint8(data[chvol*2+ht+j])
-				rgb := color.RGBA{R: r, G: g, B: b, A: uint8(255)}
-				img.Set(j, i, rgb)
-			}
-		}
-	} else if c == 4 {
-		chvol := h * w
-		for i := 0; i < h; i++ {
-			ht := i * w
-			for j := 0; j < w; j++ {
-
-				r := uint8(data[chvol*0+ht+j])
-				g := uint8(data[chvol*1+ht+j])
-				b := uint8(data[chvol*2+ht+j])
-				a := uint8(data[chvol*3+ht+j])
-				rgba := color.RGBA{R: r, G: g, B: b, A: a}
-				img.Set(j, i, rgba)
-			}
-		}
-	}
-	return img
-
-}
 
 //Create4dTensorGray creates a tensor from the largest dims found in the img batch it will create black bars on the sides of the positions that don't fit.
 //channels is fixed to 1. This also scales the values to 0 to 255.
@@ -571,83 +478,6 @@ func (b *Tensor4d) MirrorCopy() *Tensor4d {
 	return cpy
 }
 
-func hwgray(a image.Image) []float32 {
-
-	ay := a.Bounds().Max.Y
-	ax := a.Bounds().Max.X
-
-	array := make([]float32, ay*ax)
-	for i := 0; i < ay; i++ {
-		for j := 0; j < ax; j++ {
-			ra, ga, ba, _ := a.At(j, i).RGBA()
-			avg := float32(ra+ga+ba) / float32(3)
-			array[(i*ax)+(j)] = avg
-
-		}
-	}
-	//65535/x=255 ...x=257
-	divideall(float32(257), array)
-	return array
-}
-func chw(a image.Image) []float32 {
-	c := 3
-	ay := a.Bounds().Max.Y
-	ax := a.Bounds().Max.X
-
-	array := make([]float32, ay*ax*c)
-	for i := 0; i < ay; i++ {
-		for j := 0; j < ax; j++ {
-			ra, ga, ba, _ := a.At(j, i).RGBA()
-
-			array[(0*ax*ay)+(i*ax)+j] = float32(ra)
-			array[(1*ax*ay)+(i*ax)+j] = float32(ga)
-			array[(2*ax*ay)+(i*ax)+j] = float32(ba)
-
-		}
-	}
-	//65535/x=255 ...x=257
-	divideall(float32(257), array)
-	return array
-}
-func hwc(a image.Image) []float32 {
-	c := 3
-	ay := a.Bounds().Max.Y
-	ax := a.Bounds().Max.X
-
-	array := make([]float32, ay*ax*c)
-	for i := 0; i < ay; i++ {
-		for j := 0; j < ax; j++ {
-			ra, ga, ba, _ := a.At(j, i).RGBA()
-
-			array[(i*ax*c)+(j*c)+0] = float32(ra)
-			array[(i*ax*c)+(j*c)+1] = float32(ga)
-			array[(i*ax*c)+(j*c)+2] = float32(ba)
-		}
-	}
-	//65535/x=255 ...x=257
-	divideall(float32(257), array)
-	return array
-}
-func findvol(dims []int) (vol int) {
-	vol = 1
-	for _, dim := range dims {
-		vol *= dim
-	}
-	return vol
-}
-
-func divideallint32(value int32, array []int32) {
-	for i := 0; i < len(array); i++ {
-		array[i] = array[i] / value
-	}
-}
-
-func divideall(value float32, array []float32) {
-	for i := 0; i < len(array); i++ {
-		array[i] = array[i] / value
-	}
-}
-
 //ConcatTensors concats tensors into a new 4d tensor.  if dest is nil. Function will will allocate new memory and return a pointer to it.
 //
 //Example :
@@ -659,44 +489,7 @@ func divideall(value float32, array []float32) {
 //
 // Only NCHW for now
 func ConcatTensors(tensors []*Tensor4d, dest *Tensor4d) *Tensor4d {
-	if dest == nil {
-		var (
-			pb = tensors[0].dims[0]
-			c  int
-			ph = tensors[0].dims[2]
-			pw = tensors[0].dims[3]
-		)
-		for i := range tensors {
-			if pb != tensors[i].dims[0] {
-				return nil
-			}
-			c += tensors[i].dims[1]
-			if ph != tensors[i].dims[2] {
-				return nil
-			}
-			if pw != tensors[i].dims[3] {
-				return nil
-			}
 
-		}
-		dest = MakeTensor4d([]int{pb, c, ph, pw}, true)
-		koffset := 0
-		for i := range tensors {
-			for j := 0; j < pb; j++ {
-				for k := 0; k < tensors[i].dims[1]; k++ {
-					for l := 0; l < ph; l++ {
-						for m := 0; m < pw; m++ {
-							value := tensors[i].Get([]int{j, k, l, m})
-							dest.Place([]int{j, k + koffset, l, m}, value)
-						}
-					}
-				}
-				koffset += tensors[i].dims[1]
-			}
-
-		}
-		return dest
-	}
 	var (
 		pb = tensors[0].dims[0]
 		c  int
@@ -715,9 +508,12 @@ func ConcatTensors(tensors []*Tensor4d, dest *Tensor4d) *Tensor4d {
 			return nil
 		}
 
-	}
-	if dest.dims[1] != c {
-		return nil
+		if dest == nil {
+			dest = MakeTensor4d([]int{pb, c, ph, pw}, true)
+		}
+		if dest.dims[1] != c {
+			return nil
+		}
 	}
 	koffset := 0
 	for i := range tensors {
@@ -730,10 +526,9 @@ func ConcatTensors(tensors []*Tensor4d, dest *Tensor4d) *Tensor4d {
 					}
 				}
 			}
-			koffset += tensors[i].dims[1]
-		}
 
+		}
+		koffset += tensors[i].dims[1]
 	}
 	return dest
-
 }
