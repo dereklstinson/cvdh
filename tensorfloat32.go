@@ -21,6 +21,20 @@ func (b *Tensor4d) Data() (datacopy []float32) {
 	return datacopy
 }
 
+//SetTensorValues sets the values of the tensor if values passed are nil. Then the original values will remain.
+func (b *Tensor4d) SetTensorValues(d []float32, stride, dims []int) {
+	if d != nil {
+		b.data = d
+	}
+	if stride != nil {
+		b.stride = stride
+	}
+	if dims != nil {
+		b.dims = dims
+	}
+	return
+}
+
 //DataFP16 returns a copy of the Tensor in FP16
 func (b *Tensor4d) DataFP16() (copy []half.Float16) {
 	return half.NewFloat16Array(b.data)
@@ -194,6 +208,13 @@ func (b *Tensor4d) Dims32() []int32 {
 	for i := range dims {
 		dims[i] = int32(b.dims[i])
 	}
+	return dims
+}
+
+//Dims returns the dims in type int
+func (b *Tensor4d) Dims() []int {
+	dims := make([]int, len(b.dims))
+	copy(dims, b.dims)
 	return dims
 }
 
