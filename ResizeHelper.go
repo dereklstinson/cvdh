@@ -10,9 +10,10 @@ import (
 
 //RandomHelper will create random values used in image manipulations
 type RandomHelper struct {
-	min, max []int
-	rng      *rand.Rand
-	rngs     rand.Source
+	min, max            []int
+	rng                 *rand.Rand
+	rngs                rand.Source
+	inputsmallerthanmin bool
 }
 
 //CreateRandomHelper creates will return
@@ -31,10 +32,11 @@ func CreateRandomHelper(min, max []int) *RandomHelper {
 func (r *RandomHelper) ImageResizeOffset(inputdims []int) (pmin, pmax []int, err error) {
 
 	if len(inputdims) != len(r.min) {
-		return nil, nil, errors.New("=input.Size() != r.min.Size() ")
+		return nil, nil, errors.New(" len(inputdims) != len(r.min)")
 	}
 	for i := range inputdims {
 		if inputdims[i] < r.min[i] {
+			//	inputsmallerthanmin = true
 			return nil, nil, errors.New("input.Size() < r.min.Size() ")
 		}
 	}
