@@ -28,6 +28,11 @@ func CreateRandomHelper(min, max []int) *RandomHelper {
 	}
 }
 
+//Set sets the min and max
+func (r *RandomHelper) Set(min, max []int) {
+	r.min, r.max = min, max
+}
+
 //ImageResizeOffset returns random crop point values in user's dim order
 func (r *RandomHelper) ImageResizeOffset(inputdims []int) (pmin, pmax []int, err error) {
 

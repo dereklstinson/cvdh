@@ -382,6 +382,70 @@ func Create4dTensorGray(imgs []image.Image, NCHW bool) *Tensor4d {
 	}
 }
 
+//ReplaceImageAlphaChannelwithGrayedImage this would be used for something like edge detection.
+func CreateTensorFromImageandGrayedEdgeKernel(original, edgedetection image.Image, NCHW bool) *Tensor4d {
+	w, h := original.Bounds().Max.X, original.Bounds().Max.Y
+	var dims []int
+	if NCHW {
+		dims = []int{1, 3, h, w}
+	} else {
+		dims = []int{1, h, w, 3}
+	}
+	hwcvol := findvol(dims)
+	data := make([]float32, hwcvol)
+	if NCHW {
+		coffset := h * w
+		for i := 0; i < h; i++ {
+			for k := 0; k < w; k++ {
+				r, g, b, _ := original.At(k, i).RGBA()
+				re, ge, be, _ := edgedetection.At(k, i).RGBA()
+				r /= 257
+				g /= 257
+				b /= 257
+				gray := ((re + ge + be) / 3) / 257
+
+				data[0*coffset+i*w+k] = (float32)(r)
+				data[1*coffset+i*w+k] = (float32)(g)
+				data[2*coffset+i*w+k] = (float32)(b)
+				data[3*coffset+i*w+k] = (float32)(gray)
+			}
+		}
+
+	} else {
+		for i := 0; i < h; i++ {
+			ioff := i * w * 4
+			for k := 0; k < w; k++ {
+				koff := k * 4
+				r, g, b, _ := original.At(k, i).RGBA()
+				re, ge, be, ra := edgedetection.At(k, i).RGBA()
+				var gray uint32
+				if ra <= 65535/2 {
+					r /= 257
+					g /= 257
+					b /= 257
+					gray = ra / 257
+				} else {
+					r /= 257
+					g /= 257
+					b /= 257
+					gray = ((re + ge + be) / 3) / 257
+					gray = ((re + ge + be) / 3) / 257
+				}
+
+				data[ioff+koff+0] = (float32)(r)
+				data[ioff+koff+1] = (float32)(g)
+				data[ioff+koff+2] = (float32)(b)
+				data[ioff+koff+3] = (float32)(gray)
+			}
+		}
+	}
+	return &Tensor4d{
+		dims: dims,
+		data: data,
+		nchw: NCHW,
+	}
+}
+
 //Create4dTensor creates a tensor from the largest dims found in the img batch it will create black bars on the sides of the positions that don't fit.
 //channels is fixed to 3. This also scales the values to 0 to 255.
 func Create4dTensor(imgs []image.Image, NCHW bool) *Tensor4d {
