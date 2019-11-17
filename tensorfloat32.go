@@ -397,58 +397,63 @@ func CreateBatchTensorFromImageandGrayedEdgeKernel(original, edgedetection []ima
 	if NCHW {
 		hwc := h * w * 4
 		for n := 0; n < batchsize; n++ {
-			boffset := hwc * n
-			coffset := h * w
-			for i := 0; i < h; i++ {
-				hoffset := i * w
-				for k := 0; k < w; k++ {
+			go func(n int) {
+				boffset := hwc * n
+				coffset := h * w
+				for i := 0; i < h; i++ {
+					hoffset := i * w
+					for k := 0; k < w; k++ {
 
-					r, g, b, _ := original[n].At(k, i).RGBA()
-					re, ge, be, _ := edgedetection[n].At(k, i).RGBA()
-					r /= 257
-					g /= 257
-					b /= 257
-					gray := ((re + ge + be) / 3) / 257
+						r, g, b, _ := original[n].At(k, i).RGBA()
+						re, ge, be, _ := edgedetection[n].At(k, i).RGBA()
+						r /= 257
+						g /= 257
+						b /= 257
+						gray := ((re + ge + be) / 3) / 257
 
-					data[boffset+0*coffset+hoffset+k] = (float32)(r)
-					data[boffset+1*coffset+hoffset+k] = (float32)(g)
-					data[boffset+2*coffset+hoffset+k] = (float32)(b)
-					data[boffset+3*coffset+hoffset+k] = (float32)(gray)
+						data[boffset+0*coffset+hoffset+k] = (float32)(r)
+						data[boffset+1*coffset+hoffset+k] = (float32)(g)
+						data[boffset+2*coffset+hoffset+k] = (float32)(b)
+						data[boffset+3*coffset+hoffset+k] = (float32)(gray)
+					}
 				}
-			}
+
+			}(n)
 
 		}
 
 	} else {
 		hwc := h * w * 4
 		for n := 0; n < batchsize; n++ {
-			boffset := hwc * n
-			for i := 0; i < h; i++ {
-				ioff := i * w * 4
-				for k := 0; k < w; k++ {
-					koff := k * 4
-					r, g, b, _ := original[n].At(k, i).RGBA()
-					re, ge, be, ra := edgedetection[n].At(k, i).RGBA()
-					var gray uint32
-					if ra <= 65535/2 {
-						r /= 257
-						g /= 257
-						b /= 257
-						gray = ra / 257
-					} else {
-						r /= 257
-						g /= 257
-						b /= 257
-						gray = ((re + ge + be) / 3) / 257
-						gray = ((re + ge + be) / 3) / 257
-					}
+			go func(n int) {
+				boffset := hwc * n
+				for i := 0; i < h; i++ {
+					ioff := i * w * 4
+					for k := 0; k < w; k++ {
+						koff := k * 4
+						r, g, b, _ := original[n].At(k, i).RGBA()
+						re, ge, be, ra := edgedetection[n].At(k, i).RGBA()
+						var gray uint32
+						if ra <= 65535/2 {
+							r /= 257
+							g /= 257
+							b /= 257
+							gray = ra / 257
+						} else {
+							r /= 257
+							g /= 257
+							b /= 257
+							gray = ((re + ge + be) / 3) / 257
+							gray = ((re + ge + be) / 3) / 257
+						}
 
-					data[boffset+ioff+koff+0] = (float32)(r)
-					data[boffset+ioff+koff+1] = (float32)(g)
-					data[boffset+ioff+koff+2] = (float32)(b)
-					data[boffset+ioff+koff+3] = (float32)(gray)
+						data[boffset+ioff+koff+0] = (float32)(r)
+						data[boffset+ioff+koff+1] = (float32)(g)
+						data[boffset+ioff+koff+2] = (float32)(b)
+						data[boffset+ioff+koff+3] = (float32)(gray)
+					}
 				}
-			}
+			}(n)
 		}
 	}
 	return &Tensor4d{
