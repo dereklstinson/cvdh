@@ -1,7 +1,7 @@
 package cvdh
 
 import (
-	"errors"
+	//"errors"
 	"math/rand"
 	"time"
 )
@@ -10,63 +10,48 @@ import (
 
 //RandomHelper will create random values used in image manipulations
 type RandomHelper struct {
-	min, max            []int
+	offset              float32
 	rng                 *rand.Rand
 	rngs                rand.Source
+	scalar              float32
 	inputsmallerthanmin bool
 }
 
-//CreateRandomHelper creates will return
-func CreateRandomHelper(min, max []int) *RandomHelper {
+//CreateRandomHelper creats a random helper
+//scalar needs to be <1
+//This will choose random values between  scalar <= x,y <= 1 to crop the image of x and y
+//
+//example
+//
+//image [1080,1920] * (1-(rand.float()*(1-scalar)))      (1-.9) =     1-(.1 * (random number between 0 and 1)) = .9x
+//image [1080*.9x,1920*.9x]
+// 1080(1-.9x) = max offset
+func CreateRandomHelper(scalar float32) *RandomHelper {
 	rngs := rand.NewSource(time.Now().Unix())
 
 	return &RandomHelper{
-		rng:  rand.New(rngs),
-		rngs: rngs,
-		min:  min,
-		max:  max,
+		rng:    rand.New(rngs),
+		rngs:   rngs,
+		scalar: scalar,
 	}
 }
 
 //Set sets the min and max
-func (r *RandomHelper) Set(min, max []int) {
-	r.min, r.max = min, max
+func (r *RandomHelper) Set(scalar float32) {
+	r.scalar = scalar
 }
 
 //ImageResizeOffset returns random crop point values in user's dim order
 func (r *RandomHelper) ImageResizeOffset(inputdims []int) (pmin, pmax []int, err error) {
 
-	if len(inputdims) != len(r.min) {
-		return nil, nil, errors.New(" len(inputdims) != len(r.min)")
-	}
-	for i := range inputdims {
-		if inputdims[i] < r.min[i] {
-			//	inputsmallerthanmin = true
-			return nil, nil, errors.New("input.Size() < r.min.Size() ")
-		}
-	}
 	pmax = make([]int, len(inputdims))
-	for i := range pmax {
-		if r.max[i] < inputdims[i] {
-			pmax[i] = r.max[i]
-		} else {
-			pmax[i] = inputdims[i]
-		}
-	}
 	pmin = make([]int, len(inputdims))
-	for i, max := range pmax {
-		min := r.min[i]
-		odimsize := inputdims[i]
-		dimsize := min
-		if max-min != 0 {
-			dimsize = r.rng.Intn(max-min) + min
-		}
-
-		if odimsize-dimsize != 0 {
-			pmin[i] = r.rng.Intn(odimsize - dimsize)
-		}
-
-		pmax[i] = dimsize + pmin[i] //reusing mids for the new box size
+	for i := range pmax {
+		scalar := 1 - (r.rng.Float32() * (1 - r.scalar))
+		maxsize := int((float32)(inputdims[i]) * scalar)
+		offset := r.rng.Int() % (inputdims[i] - maxsize)
+		pmin[i] = offset
+		pmax[i] = offset + maxsize
 	}
 	//angle =
 
