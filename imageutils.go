@@ -261,7 +261,6 @@ func FindImageStatsFromPaths(paths []string, threads int) (max, min, mean, mode,
 }
 
 //FindImageStats will return some statistics of the images Size will return []int{h,w}
-
 func FindImageStats(imgs []image.Image) (max, min, mean, mode, median []int) {
 	maxh, maxw := -99999999, -999999999
 	minh, minw := 9999999999, 9999999999
