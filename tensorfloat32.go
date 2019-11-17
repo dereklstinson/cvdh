@@ -382,7 +382,83 @@ func Create4dTensorGray(imgs []image.Image, NCHW bool) *Tensor4d {
 	}
 }
 
-//ReplaceImageAlphaChannelwithGrayedImage this would be used for something like edge detection.
+//CreateBatchTensorFromImageandGrayedEdgeKernel this would be used for something like edge detection.
+func CreateBatchTensorFromImageandGrayedEdgeKernel(original, edgedetection []image.Image, NCHW bool) *Tensor4d {
+	w, h := original[0].Bounds().Max.X, original[0].Bounds().Max.Y
+	var dims []int
+	batchsize := len(original)
+	if NCHW {
+		dims = []int{batchsize, 4, h, w}
+	} else {
+		dims = []int{batchsize, h, w, 4}
+	}
+	hwcvol := findvol(dims)
+	data := make([]float32, hwcvol)
+	if NCHW {
+		hwc := h * w * 4
+		for n := 0; n < batchsize; n++ {
+			boffset := hwc * n
+			coffset := h * w
+			for i := 0; i < h; i++ {
+				hoffset := i * w
+				for k := 0; k < w; k++ {
+
+					r, g, b, _ := original[n].At(k, i).RGBA()
+					re, ge, be, _ := edgedetection[n].At(k, i).RGBA()
+					r /= 257
+					g /= 257
+					b /= 257
+					gray := ((re + ge + be) / 3) / 257
+
+					data[boffset+0*coffset+hoffset+k] = (float32)(r)
+					data[boffset+1*coffset+hoffset+k] = (float32)(g)
+					data[boffset+2*coffset+hoffset+k] = (float32)(b)
+					data[boffset+3*coffset+hoffset+k] = (float32)(gray)
+				}
+			}
+
+		}
+
+	} else {
+		hwc := h * w * 4
+		for n := 0; n < batchsize; n++ {
+			boffset := hwc * n
+			for i := 0; i < h; i++ {
+				ioff := i * w * 4
+				for k := 0; k < w; k++ {
+					koff := k * 4
+					r, g, b, _ := original[n].At(k, i).RGBA()
+					re, ge, be, ra := edgedetection[n].At(k, i).RGBA()
+					var gray uint32
+					if ra <= 65535/2 {
+						r /= 257
+						g /= 257
+						b /= 257
+						gray = ra / 257
+					} else {
+						r /= 257
+						g /= 257
+						b /= 257
+						gray = ((re + ge + be) / 3) / 257
+						gray = ((re + ge + be) / 3) / 257
+					}
+
+					data[boffset+ioff+koff+0] = (float32)(r)
+					data[boffset+ioff+koff+1] = (float32)(g)
+					data[boffset+ioff+koff+2] = (float32)(b)
+					data[boffset+ioff+koff+3] = (float32)(gray)
+				}
+			}
+		}
+	}
+	return &Tensor4d{
+		dims: dims,
+		data: data,
+		nchw: NCHW,
+	}
+}
+
+//CreateTensorFromImageandGrayedEdgeKernel this would be used for something like edge detection.
 func CreateTensorFromImageandGrayedEdgeKernel(original, edgedetection image.Image, NCHW bool) *Tensor4d {
 	w, h := original.Bounds().Max.X, original.Bounds().Max.Y
 	var dims []int
