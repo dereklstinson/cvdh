@@ -74,39 +74,45 @@ func (d *Encoder) Encode(img image.Image) *Tensor4d {
 //Decoder will store a vector/color mappings
 //Mostly works the one hot states.
 type Decoder struct {
-	maps []dmap
+	maps dmap
 }
 type dmap struct {
-	vector []float32
-	c      color.Color
+	vector [][]float32
+	c      []color.Color
 }
 
 //CreateDecoder creates maps to help decode vectors to colors
 func CreateDecoder(vectors [][]float32, colors []color.Color) *Decoder {
-	dmaps := make([]dmap, len(colors))
-	for i := range colors {
-		dmaps[i] = makedmap(vectors[i], colors[i])
-	}
+
 	return &Decoder{
-		maps: dmaps,
+		maps: makedmap(vectors, colors),
 	}
 }
-func makedmap(v []float32, c color.Color) dmap {
-	vect := make([]float32, len(v))
-	copy(vect, v)
+func makedmap(v [][]float32, c []color.Color) dmap {
+	vect := make([][]float32, len(v))
+
+	for i := range v {
+		vect[i] = make([]float32, len(v[i]))
+		copy(vect[i], v[i])
+
+	}
+
 	return dmap{
-		vector: v,
+		vector: vect,
 		c:      c,
 	}
 }
-func (d *dmap) checkhotstate(v []float32) float32 {
-
+func (d *dmap) mappedcolor(v []float32) color.Color {
 	for i := range d.vector {
-		if d.vector[i] != 0 {
-			return d.vector[i] - v[i]
+		adder := float32(0)
+		for j := range d.vector[i] {
+			adder += d.vector[i][j] - v[j]
+		}
+		if adder == 0 {
+			return d.c[i]
 		}
 	}
-	return 0
+	return nil
 }
 
 //Decode - looks at the one hot state high one.  takes the difference with that in the vector.
@@ -128,19 +134,24 @@ func (d *Decoder) Decode(tensor *Tensor4d) []image.Image {
 		for i := 0; i < h; i++ {
 			for j := 0; j < w; j++ {
 				vector := make([]float32, c)
+				max := (float32)(-9999999)
+				maxpos := 0
 				for k := 0; k < c; k++ {
-					vector[k] = tensor.data[strides[0]*n+strides[1]*h+strides[2]*w+strides[3]*c]
-				}
-				var best = float32(-9999999)
-				var position int
-				for k := range d.maps {
-					current := d.maps[k].checkhotstate(vector)
-					if best < current {
-						best = current
-						position = k
+					vector[k] = tensor.data[strides[0]*n+strides[1]*i+strides[2]*j+k]
+					if max < vector[k] {
+						vector[maxpos] = 0
+						maxpos = k
+						max = vector[k]
+						vector[k] = 1
+					} else {
+						vector[k] = 0
 					}
 				}
-				im.Set(j, i, d.maps[position].c)
+				col := d.maps.mappedcolor(vector)
+				if col == nil {
+					col = color.RGBA{0, 0, 0, 0}
+				}
+				im.Set(j, i, col)
 			}
 		}
 		multipleimages[n] = im
