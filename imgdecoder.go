@@ -3,6 +3,7 @@ package cvdh
 import (
 	"image"
 	"image/color"
+	"sync"
 )
 
 //Encoder helps take images and maps the colors to vectors into a tensor.
@@ -36,6 +37,25 @@ func CreateEncoder(vectors [][]float32, colors []color.Color) *Encoder {
 func (d *Encoder) AddToMap(vector []float32, c color.RGBA) {
 
 	d.m[c] = vector
+}
+
+//EncodeBatch does encode but in a batch
+func (d *Encoder) EncodeBatch(imgs []image.Image, threads int) *Tensor4d {
+	n1tensors := make([]*Tensor4d, len(imgs))
+	var wg sync.WaitGroup
+	for i := range n1tensors {
+		wg.Add(1)
+		go func(i int) {
+			n1tensors[i] = d.Encode(imgs[i])
+			wg.Done()
+		}(i)
+		if i%threads == threads-1 {
+			wg.Wait()
+		}
+
+	}
+	wg.Wait()
+	return Batch1dTensors(n1tensors, threads)
 }
 
 //Encode encodes the image to what is mapped in the encoder.

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/dereklstinson/half"
 	"image"
+	"sync"
 )
 
 //Tensor4d is a float32 representation of a 4d tensor
@@ -588,6 +589,37 @@ func CreateTensorFromImageandGrayedEdgeKernel(original, edgedetection image.Imag
 		data: data,
 		nchw: NCHW,
 	}
+}
+
+//Batch1dTensors requires all tensors to have the same dims
+func Batch1dTensors(t []*Tensor4d, threads int) (b *Tensor4d) {
+	b = new(Tensor4d)
+	b.nchw = t[0].nchw
+	n := len(t)
+	dims := t[0].Dims()
+	dims[0] = n
+	b.dims = dims
+	boffset := t[0].Vol()
+	if dims[0] != 1 {
+		return nil
+	}
+	b.data = make([]float32, b.Vol())
+	var wg sync.WaitGroup
+	for i := range t {
+		wg.Add(1)
+		offset := boffset * i
+		go func(offset int) {
+			for j := range t[0].data {
+				b.data[offset+j] = t[i].data[j]
+			}
+			wg.Done()
+		}(offset)
+		if i%threads == threads-1 {
+			wg.Wait()
+		}
+	}
+	wg.Wait()
+	return b
 }
 
 //Create4dTensor creates a tensor from the largest dims found in the img batch it will create black bars on the sides of the positions that don't fit.
