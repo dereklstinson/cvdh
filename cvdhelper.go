@@ -2,6 +2,7 @@ package cvdh
 
 import (
 	"errors"
+	"golang.org/x/image/bmp"
 	"image"
 	"image/jpeg"
 	"image/png"
@@ -48,6 +49,8 @@ func GetImageHD(path string) (image.Image, error) {
 		return jpeg.Decode(file)
 	} else if strings.HasSuffix(path, ".png") {
 		return png.Decode(file)
+	} else if strings.HasSuffix(path, ".bmp") {
+		return bmp.Decode(file)
 	}
 	return nil, errors.New("Unsupported Format")
 }
