@@ -382,7 +382,70 @@ func Create4dTensorGray(imgs []image.Image, NCHW bool) *Tensor4d {
 	}
 }
 
+//CreateTensorGrayImageGrayEdgeKernel will take a color image Turn it gray and take an EDK and gray it
+//makeing an 2 channel tensor
+func CreateTensorGrayImageGrayEdgeKernel(original, edgedetection []image.Image, NCHW bool) *Tensor4d {
+	w, h := original[0].Bounds().Max.X, original[0].Bounds().Max.Y
+	var dims []int
+	batchsize := len(original)
+	if NCHW {
+		dims = []int{batchsize, 2, h, w}
+	} else {
+		dims = []int{batchsize, h, w, 2}
+	}
+	hwcvol := findvol(dims)
+	data := make([]float32, hwcvol)
+	if NCHW {
+		hwc := h * w * 2
+		for n := 0; n < batchsize; n++ {
+			go func(n int) {
+				boffset := hwc * n
+				coffset := h * w
+				for i := 0; i < h; i++ {
+					hoffset := i * w
+					for k := 0; k < w; k++ {
+
+						r, g, b, _ := original[n].At(k, i).RGBA()
+						re, ge, be, _ := edgedetection[n].At(k, i).RGBA()
+
+						data[boffset+0*coffset+hoffset+k] = (float32)(((r + g + b) / 3) / 257)
+						data[boffset+1*coffset+hoffset+k] = (float32)(((re + ge + be) / 3) / 257)
+					}
+				}
+
+			}(n)
+
+		}
+
+	} else {
+		hwc := h * w * 2
+		for n := 0; n < batchsize; n++ {
+			go func(n int) {
+				boffset := hwc * n
+				for i := 0; i < h; i++ {
+					ioff := i * w * 2
+					for k := 0; k < w; k++ {
+						koff := k * 2
+						r, g, b, _ := original[n].At(k, i).RGBA()
+						re, ge, be, _ := edgedetection[n].At(k, i).RGBA()
+
+						data[boffset+ioff+koff+0] = (float32)(((r + g + b) / 3) / 257)
+						data[boffset+ioff+koff+1] = (float32)(((re + ge + be) / 3) / 257)
+
+					}
+				}
+			}(n)
+		}
+	}
+	return &Tensor4d{
+		dims: dims,
+		data: data,
+		nchw: NCHW,
+	}
+}
+
 //CreateBatchTensorFromImageandGrayedEdgeKernel this would be used for something like edge detection.
+//This will make a 4 channel tensor
 func CreateBatchTensorFromImageandGrayedEdgeKernel(original, edgedetection []image.Image, NCHW bool) *Tensor4d {
 	w, h := original[0].Bounds().Max.X, original[0].Bounds().Max.Y
 	var dims []int
