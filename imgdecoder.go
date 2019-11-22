@@ -46,6 +46,7 @@ func (d *Encoder) EncodeBatch(imgs []image.Image, threads int) *Tensor4d {
 	for i := range n1tensors {
 		wg.Add(1)
 		go func(i int) {
+
 			n1tensors[i] = d.Encode(imgs[i])
 			wg.Done()
 		}(i)
@@ -80,6 +81,11 @@ func (d *Encoder) Encode(img image.Image) *Tensor4d {
 			//b = (b * 255) / a
 			//	vect := d.m[color.RGBA{(uint8)(r), (uint8)(g), (uint8)(b), (uint8)(255)}]
 			vect := d.m[pixel]
+			if vect == nil {
+				vect = make([]float32, d.dims)
+				vect[d.dims-1] = 1
+			}
+
 			for k := 0; k < len(vect); k++ {
 				outputvol[ypos+xpos+k] = vect[k]
 			}
@@ -179,3 +185,36 @@ func (d *Decoder) Decode(tensor *Tensor4d) []image.Image {
 	return multipleimages
 
 }
+
+/*
+type emap struct {
+	vector [][]float32
+	c      []color.Color
+}
+
+func makeemap(v [][]float32, c []color.Color) emap {
+	vect := make([][]float32, len(v))
+
+	for i := range v {
+		vect[i] = make([]float32, len(v[i]))
+		copy(vect[i], v[i])
+
+	}
+
+	return emap{
+		vector: vect,
+		c:      c,
+	}
+}
+func (d *emap) mappedcolor(c color.Color) (v []float32) {
+	for i := range d.c {
+		r, g, b, _ := d.c[i].RGBA()
+		rr, gg, bb, _ := c.RGBA()
+		dr, dg, db := rr-r, gg-g, bb-b
+		if dr == 0 && dg == 0 && db == 0 {
+			return d.vector[i]
+
+		}
+	}
+	return nil
+}*/

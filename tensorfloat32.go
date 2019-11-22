@@ -2,6 +2,7 @@ package cvdh
 
 import (
 	"errors"
+	//"fmt"
 	"github.com/dereklstinson/half"
 	"image"
 	"sync"
@@ -594,15 +595,17 @@ func CreateTensorFromImageandGrayedEdgeKernel(original, edgedetection image.Imag
 //Batch1dTensors requires all tensors to have the same dims
 func Batch1dTensors(t []*Tensor4d, threads int) (b *Tensor4d) {
 	b = new(Tensor4d)
+
 	b.nchw = t[0].nchw
 	n := len(t)
 	dims := t[0].Dims()
+	if dims[0] != 1 {
+		panic(dims[0])
+	}
 	dims[0] = n
 	b.dims = dims
 	boffset := t[0].Vol()
-	if dims[0] != 1 {
-		return nil
-	}
+
 	b.data = make([]float32, b.Vol())
 	var wg sync.WaitGroup
 	for i := range t {
