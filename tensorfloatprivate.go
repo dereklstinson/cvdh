@@ -82,95 +82,88 @@ func divideall(value float32, array []float32) {
 	}
 }
 
-func hwctoimage(data []float32, dims []int) image.Image {
-	h := dims[0]
-	w := dims[1]
-	c := dims[2]
+func hwctoimage(data []float32, dims []int, nchw bool) image.Image {
+	var (
+		height  int
+		width   int
+		channel int
+	)
+	if nchw {
+		channel = dims[0]
+		height = dims[1]
+		width = dims[2]
 
-	img := image.NewRGBA(image.Rect(0, 0, h, w))
-	if c == 1 {
-		for i := 0; i < h; i++ {
-			ht := i * w
-			for j := 0; j < w; j++ {
-				g := color.Gray{
-					Y: uint8(data[ht+j]),
+	} else {
+		height = dims[0]
+		width = dims[1]
+		channel = dims[2]
+	}
+	stride := findstride(dims)
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+
+	for h := 0; h < height; h++ {
+		for w := 0; w < width; w++ {
+			rgba := make([]uint8, channel)
+			if nchw {
+				for c := 0; c < channel; c++ {
+					rgba[c] = uint8(data[(stride[0]*c)+(stride[1]*h)+(stride[2]*w)])
 				}
-				img.Set(j, i, g)
+			} else {
+				for c := 0; c < channel; c++ {
+					rgba[c] = uint8(data[(stride[0]*h)+(stride[1]*w)+(stride[2]*c)])
+				}
 			}
-		}
-	} else if c == 3 {
 
-		for i := 0; i < h; i++ {
-			ht := i * w * c
-			for j := 0; j < w; j++ {
-				wh := j * c
-				r := uint8(data[ht+wh])
-				g := uint8(data[ht+wh+1])
-				b := uint8(data[ht+wh+2])
-				rgb := color.RGBA{R: r, G: g, B: b, A: uint8(255)}
-				img.Set(j, i, rgb)
+			if channel == 1 {
+				rgb := color.RGBA{R: rgba[0], G: rgba[0], B: rgba[0], A: uint8(255)}
+				img.Set(w, h, rgb)
+			} else if channel == 2 {
+				rgb := color.RGBA{R: rgba[0], G: rgba[1], B: rgba[0]/2 + rgba[1]/2, A: uint8(255)}
+				img.Set(w, h, rgb)
+			} else if channel == 3 {
+				rgb := color.RGBA{R: rgba[0], G: rgba[1], B: rgba[2], A: uint8(255)}
+				img.Set(w, h, rgb)
+			} else if channel == 4 {
+				rgb := color.RGBA{R: rgba[0], G: rgba[1], B: rgba[2], A: rgba[3]}
+				img.Set(w, h, rgb)
 			}
-		}
-	} else if c == 4 {
-		for i := 0; i < h; i++ {
-			ht := i * w * c
-			for j := 0; j < w; j++ {
-				wh := j * c
-				r := uint8(data[ht+wh])
-				g := uint8(data[ht+wh+1])
-				b := uint8(data[ht+wh+2])
-				a := uint8(data[ht+wh+3])
-				rgba := color.RGBA{R: r, G: g, B: b, A: a}
-				img.Set(j, i, rgba)
-			}
+
 		}
 	}
+
 	return img
 
 }
+
+/*
 func chwtoimage(data []float32, dims []int) image.Image {
-	h := dims[1]
-	w := dims[2]
-	c := dims[0]
-	img := image.NewRGBA(image.Rect(0, 0, h, w))
-	if c == 1 {
-		for i := 0; i < h; i++ {
-			ht := i * w
-			for j := 0; j < w; j++ {
-				g := color.Gray{
-					Y: uint8(data[ht+j]),
-				}
-				img.Set(j, i, g)
-			}
-		}
-	} else if c == 3 {
-		chvol := h * w
-		for i := 0; i < h; i++ {
-			ht := i * w
-			for j := 0; j < w; j++ {
+	channel := dims[0]
+	height := dims[1]
+	width := dims[2]
+	stride := findstride(dims)
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
 
-				r := uint8(data[chvol*0+ht+j])
-				g := uint8(data[chvol*1+ht+j])
-				b := uint8(data[chvol*2+ht+j])
-				rgb := color.RGBA{R: r, G: g, B: b, A: uint8(255)}
-				img.Set(j, i, rgb)
+	for h := 0; h < height; h++ {
+		for w := 0; w < width; w++ {
+			rgba := make([]uint8, channel)
+			for c := 0; c < channel; c++ {
+				rgba[c] = uint8(data[(stride[0]*c)+(stride[1]*h)+(stride[2]*w)])
 			}
-		}
-	} else if c == 4 {
-		chvol := h * w
-		for i := 0; i < h; i++ {
-			ht := i * w
-			for j := 0; j < w; j++ {
+			if channel == 1 {
+				rgb := color.RGBA{R: rgba[0], G: rgba[0], B: rgba[0], A: uint8(255)}
+				img.Set(w, h, rgb)
+			} else if channel == 3 {
+				rgb := color.RGBA{R: rgba[0], G: rgba[1], B: rgba[2], A: uint8(255)}
+				img.Set(w, h, rgb)
+			} else if channel == 4 {
+				rgb := color.RGBA{R: rgba[0], G: rgba[1], B: rgba[2], A: rgba[3]}
+				img.Set(w, h, rgb)
+			}
 
-				r := uint8(data[chvol*0+ht+j])
-				g := uint8(data[chvol*1+ht+j])
-				b := uint8(data[chvol*2+ht+j])
-				a := uint8(data[chvol*3+ht+j])
-				rgba := color.RGBA{R: r, G: g, B: b, A: a}
-				img.Set(j, i, rgba)
-			}
 		}
 	}
+
 	return img
 
 }
+*/

@@ -2,7 +2,7 @@ package cvdh
 
 import (
 	"errors"
-	//"fmt"
+	"fmt"
 	"github.com/dereklstinson/half"
 	"image"
 	"sync"
@@ -136,11 +136,14 @@ func (b *Tensor4d) Min() (min float32) {
 
 //Stride returns the stride of the tensor offset
 func (b *Tensor4d) Stride() (strides []int) {
-	strides = make([]int, len(b.dims))
+	return findstride(b.dims)
+}
+func findstride(dims []int) (strides []int) {
+	strides = make([]int, len(dims))
 	stride := 1
-	for i := range strides {
+	for i := len(dims) - 1; i >= 0; i-- {
 		strides[i] = stride
-		stride *= b.dims[i]
+		stride *= dims[i]
 	}
 	return strides
 }
@@ -252,11 +255,13 @@ func (b *Tensor4d) Avg() (avg float32) {
 
 //Max returns the maximum value of all data
 func (b *Tensor4d) Max() (max float32) {
-	max = -99999999
-	for _, data := range b.data {
-		if data > max {
-			max = data
+	max = -float32(99999999.0)
+
+	for i := range b.data {
+		if b.data[i] > max {
+			max = b.data[i]
 		}
+
 	}
 	return max
 }
@@ -296,35 +301,49 @@ func (b *Tensor4d) Add(value float32) {
 //not on individual items ei per HWC or CHW
 func (b *Tensor4d) ToImages() ([]image.Image, error) {
 	if b.nchw {
-		if !(b.dims[1] == 1 || b.dims[1] == 3) {
-			return nil, errors.New("Channel Needs to be 1 or 3")
+		if !(b.dims[1] == 1 || b.dims[1] == 2 || b.dims[1] == 3 || b.dims[1] == 4) {
+			return nil, errors.New("Channel Needs to be 1 or 3 or 4")
 		}
 	}
 	if !b.nchw {
-		if !(b.dims[3] == 1 || b.dims[3] == 3) {
-			return nil, errors.New("Channel Needs to be 1 or 3")
+		if !(b.dims[3] == 1 || b.dims[3] == 2 || b.dims[3] == 3 || b.dims[3] == 4) {
+			return nil, errors.New("Channel Needs to be 1 or 3 or 4")
 		}
 	}
 	min := b.Min()
+
+	b.Add(-min)
 	max := b.Max()
+	b.Multiply(255 / max)
 
-	a := b.Clone()
-	a.Add(-min)
-	a.Multiply(255 / max)
+	imgs := make([]image.Image, b.dims[0])
+	offset := findvol(b.dims[1:])
 
-	imgs := make([]image.Image, 0)
-	hwcvol := findvol(a.dims[1:])
-	for i := 0; i < a.dims[0]; i++ {
-		data := a.data[i*hwcvol : (i+1)*hwcvol]
-		dims := a.dims[1:]
-		if a.nchw {
-			imgs = append(imgs, chwtoimage(data, dims))
-		} else {
-			imgs = append(imgs, hwctoimage(data, dims))
-		}
+	for n := 0; n < b.dims[0]; n++ {
+		println(n)
+		data := b.data[n*offset : (n+1)*offset]
+		dims := b.dims[1:]
+
+		imgs[n] = hwctoimage(data, dims, b.nchw)
 
 	}
+	/*
+		a := b.Clone()
+		a.Add(-min)
+		a.Multiply(255 / max)
 
+		imgs := make([]image.Image, a.dims[0])
+		offset := findvol(a.dims[1:])
+
+		for n := 0; n < a.dims[0]; n++ {
+			println(n)
+			data := a.data[n*offset:]
+			dims := a.dims[1:]
+
+			imgs[n] = hwctoimage(data, dims, a.nchw)
+
+		}
+	*/
 	return imgs, nil
 }
 
@@ -446,81 +465,59 @@ func CreateTensorGrayImageGrayEdgeKernel(original, edgedetection []image.Image, 
 	}
 }
 
-//CreateBatchTensorFromImageandGrayedEdgeKernel this would be used for something like edge detection.
+//CreateBatchGrayEdgeInverseEdge3Channel this would be used for something like edge detection.
 //This will make a 4 channel tensor
-func CreateBatchTensorFromImageandGrayedEdgeKernel(original, edgedetection []image.Image, NCHW bool) *Tensor4d {
-	w, h := original[0].Bounds().Max.X, original[0].Bounds().Max.Y
+func CreateBatchGrayEdgeInverseEdge3Channel(imgs [][]image.Image, NCHW bool) *Tensor4d {
+	width := imgs[0][0].Bounds().Max.X
+	height := imgs[0][0].Bounds().Max.Y
 	var dims []int
-	batchsize := len(original)
+	batchsize := len(imgs[0])
+	channel := len(imgs)
 	if NCHW {
-		dims = []int{batchsize, 4, h, w}
+		dims = []int{batchsize, channel, height, width}
 	} else {
-		dims = []int{batchsize, h, w, 4}
+		dims = []int{batchsize, height, width, channel}
 	}
+	fmt.Println(NCHW, dims)
+
+	stride := findstride(dims)
+	fmt.Println(stride)
 	hwcvol := findvol(dims)
 	data := make([]float32, hwcvol)
-	if NCHW {
-		hwc := h * w * 4
-		for n := 0; n < batchsize; n++ {
-			go func(n int) {
-				boffset := hwc * n
-				coffset := h * w
-				for i := 0; i < h; i++ {
-					hoffset := i * w
-					for k := 0; k < w; k++ {
+	//	var wg sync.WaitGroup
 
-						r, g, b, _ := original[n].At(k, i).RGBA()
-						re, ge, be, _ := edgedetection[n].At(k, i).RGBA()
-						r /= 257
-						g /= 257
-						b /= 257
-						gray := ((re + ge + be) / 3) / 257
+	for n := 0; n < batchsize; n++ {
+		//	wg.Add(1)
+		//	go func(n int, stride []int) {
+		for h := 0; h < height; h++ {
+			for w := 0; w < width; w++ {
 
-						data[boffset+0*coffset+hoffset+k] = (float32)(r)
-						data[boffset+1*coffset+hoffset+k] = (float32)(g)
-						data[boffset+2*coffset+hoffset+k] = (float32)(b)
-						data[boffset+3*coffset+hoffset+k] = (float32)(gray)
+				channels := make([]float32, channel)
+				for c := 0; c < channel; c++ {
+					ir, ig, ib, _ := imgs[c][n].At(w, h).RGBA()
+					channels[c] = float32(ir+ig+ib) / (3 * 257)
+				}
+
+				if NCHW {
+					for c := 0; c < channel; c++ {
+
+						data[(stride[0]*n)+(stride[1]*c)+(stride[2]*h)+(w*stride[3])] = channels[c]
+					}
+
+				} else {
+					for c := 0; c < channel; c++ {
+						data[(stride[0]*n)+(stride[1]*h)+(stride[2]*w)+(c*stride[3])] = channels[c]
 					}
 				}
 
-			}(n)
-
+			}
 		}
+		//	wg.Done()
+		//	}(n, stride)
 
-	} else {
-		hwc := h * w * 4
-		for n := 0; n < batchsize; n++ {
-			go func(n int) {
-				boffset := hwc * n
-				for i := 0; i < h; i++ {
-					ioff := i * w * 4
-					for k := 0; k < w; k++ {
-						koff := k * 4
-						r, g, b, _ := original[n].At(k, i).RGBA()
-						re, ge, be, ra := edgedetection[n].At(k, i).RGBA()
-						var gray uint32
-						if ra <= 65535/2 {
-							r /= 257
-							g /= 257
-							b /= 257
-							gray = ra / 257
-						} else {
-							r /= 257
-							g /= 257
-							b /= 257
-							gray = ((re + ge + be) / 3) / 257
-							gray = ((re + ge + be) / 3) / 257
-						}
-
-						data[boffset+ioff+koff+0] = (float32)(r)
-						data[boffset+ioff+koff+1] = (float32)(g)
-						data[boffset+ioff+koff+2] = (float32)(b)
-						data[boffset+ioff+koff+3] = (float32)(gray)
-					}
-				}
-			}(n)
-		}
 	}
+
+	//wg.Wait()
 	return &Tensor4d{
 		dims: dims,
 		data: data,
@@ -528,6 +525,62 @@ func CreateBatchTensorFromImageandGrayedEdgeKernel(original, edgedetection []ima
 	}
 }
 
+//CreateBatchTensorFromImageandGrayedEdgeKernel this would be used for something like edge detection.
+//This will make a 4 channel tensor
+func CreateBatchTensorFromImageandGrayedEdgeKernel(original, edgedetection []image.Image, NCHW bool) *Tensor4d {
+	width, height := original[0].Bounds().Max.X, original[0].Bounds().Max.Y
+	var dims []int
+	batchsize := len(original)
+	channel := 4
+	if NCHW {
+		dims = []int{batchsize, channel, height, width}
+	} else {
+		dims = []int{batchsize, height, width, channel}
+	}
+	stride := findstride(dims)
+	hwcvol := findvol(dims)
+	data := make([]float32, hwcvol)
+	var wg sync.WaitGroup
+
+	for n := 0; n < batchsize; n++ {
+		wg.Add(1)
+		go func(n int, stride []int) {
+			for h := 0; h < height; h++ {
+				for w := 0; w < width; w++ {
+					r, g, b, _ := original[n].At(w, h).RGBA()
+					re, ge, be, _ := edgedetection[n].At(w, h).RGBA()
+					r /= 257
+					g /= 257
+					b /= 257
+					a := (re + ge + be) / (3 * 257)
+					var colors = []float32{float32(r), float32(g), float32(b), float32(a)}
+					if NCHW {
+						for c := 0; c < channel; c++ {
+							data[(stride[0]*n)+(stride[1]*c)+(stride[2]*h)+(stride[3]*w)] = colors[c]
+						}
+
+					} else {
+						for c := 0; c < channel; c++ {
+							data[(stride[0]*n)+(stride[1]*h)+(stride[2]*w)+(stride[3]*c)] = colors[c]
+						}
+					}
+
+				}
+			}
+			wg.Done()
+		}(n, stride)
+
+	}
+
+	wg.Wait()
+	return &Tensor4d{
+		dims: dims,
+		data: data,
+		nchw: NCHW,
+	}
+}
+
+/*
 //CreateTensorFromImageandGrayedEdgeKernel this would be used for something like edge detection.
 func CreateTensorFromImageandGrayedEdgeKernel(original, edgedetection image.Image, NCHW bool) *Tensor4d {
 	w, h := original.Bounds().Max.X, original.Bounds().Max.Y
@@ -591,7 +644,7 @@ func CreateTensorFromImageandGrayedEdgeKernel(original, edgedetection image.Imag
 		nchw: NCHW,
 	}
 }
-
+*/
 //Batch1dTensors requires all tensors to have the same dims
 func Batch1dTensors(t []*Tensor4d, threads int) (b *Tensor4d) {
 	b = new(Tensor4d)
